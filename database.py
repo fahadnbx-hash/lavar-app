@@ -18,6 +18,20 @@ REPO_NAME = "fahadnbx-hash/lavar-app"
 def get_gsheet_client():
     return gspread.authorize(get_creds())
 
+def init_db():
+    """إنشاء ورقة العمل الخاصة بالزيارات إذا لم تكن موجودة"""
+    try:
+        client = get_gsheet_client()
+        sh = client.open_by_key(SHEET_ID)
+        try:
+            sh.worksheet("Visits")
+        except gspread.exceptions.WorksheetNotFound:
+            sh.add_worksheet(title="Visits", rows="1000", cols="10")
+            ws = sh.worksheet("Visits")
+            ws.append_row(["Visit ID", "Date", "Salesman", "Customer Name", "Visit Type", "Potential Qty", "Potential Date", "Notes", "Status"])
+        return True
+    except: return False
+
 def upload_to_github(file_content, file_name):
     try:
         g = Github(GITHUB_TOKEN)
@@ -25,24 +39,31 @@ def upload_to_github(file_content, file_name):
         path = f"invoices/{file_name}"
         repo.create_file(path, f"Upload invoice {file_name}", file_content, branch="main")
         return f"https://raw.githubusercontent.com/{REPO_NAME}/main/{path}"
-    except Exception as e:
-        st.error(f"خطأ في الرفع: {str(e )}")
-        return None
+    except: return None
 
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=5 )
 def get_orders():
     try:
         client = get_gsheet_client()
         sh = client.open_by_key(SHEET_ID)
         ws = sh.worksheet("Orders")
         data = ws.get_all_records()
-        if not data: return pd.DataFrame()
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(data) if data else pd.DataFrame()
         if not df.empty and 'Due Date' in df.columns:
             df['Due Date'] = pd.to_datetime(df['Due Date'], errors='coerce').dt.date
         return df
-    except Exception as e:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
+
+@st.cache_data(ttl=5)
+def get_visits():
+    """جلب سجل الزيارات"""
+    try:
+        client = get_gsheet_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Visits")
+        data = ws.get_all_records()
+        return pd.DataFrame(data) if data else pd.DataFrame()
+    except: return pd.DataFrame()
 
 @st.cache_data(ttl=30)
 def get_stock():
@@ -52,8 +73,7 @@ def get_stock():
         ws = sh.worksheet("Stock")
         data = ws.get_all_records()
         return pd.DataFrame(data) if data else pd.DataFrame()
-    except Exception as e:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
 def add_order(customer_name, cr_number, tax_number, address, phone, product, quantity, days_to_due, custom_price=None, status='Draft'):
     try:
@@ -70,8 +90,20 @@ def add_order(customer_name, cr_number, tax_number, address, phone, product, qua
         ws_orders.append_row(new_row)
         st.cache_data.clear()
         return True
-    except Exception as e:
-        return False
+    except: return False
+
+def add_visit(salesman, customer_name, visit_type, pot_qty, pot_date, notes):
+    """إضافة زيارة جديدة"""
+    try:
+        client = get_gsheet_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Visits")
+        visit_id = datetime.now().strftime("V%Y%m%d%H%M%S")
+        date_now = datetime.now().strftime("%Y-%m-%d")
+        ws.append_row([visit_id, date_now, salesman, customer_name, visit_type, pot_qty, pot_date, notes, "Active"])
+        st.cache_data.clear()
+        return True
+    except: return False
 
 def update_order_status(order_id, status, invoice_url=''):
     try:
@@ -86,8 +118,7 @@ def update_order_status(order_id, status, invoice_url=''):
                 st.cache_data.clear()
                 return True
         return False
-    except Exception as e:
-        return False
+    except: return False
 
 def delete_order(order_id):
     try:
@@ -101,8 +132,7 @@ def delete_order(order_id):
                 st.cache_data.clear()
                 return True
         return False
-    except Exception as e:
-        return False
+    except: return False
 
 def update_stock_quantity(product, new_quantity):
     try:
@@ -116,7 +146,4 @@ def update_stock_quantity(product, new_quantity):
                 st.cache_data.clear()
                 return True
         return False
-    except Exception as e:
-        return False
-
-def init_db(): return True
+    except: return False
