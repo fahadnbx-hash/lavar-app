@@ -5,20 +5,20 @@ from datetime import datetime, timedelta
 import streamlit as st
 import io
 
-# استيراد مكتبات جوجل بطريقة آمنة لتجنب ImportError
+# استيراد مكتبات جوجل بطريقة آمنة
 try:
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaIoBaseUpload
 except ImportError:
-    st.error("جاري تثبيت مكتبات إضافية... يرجى الانتظار قليلاً ثم عمل Reboot" )
+    st.error("جاري تحميل مكتبات إضافية... يرجى عمل Reboot للتطبيق" )
 
 def get_creds():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    # استخدام st.secrets للوصول لبيانات الاعتماد
     creds_info = st.secrets["gcp_service_account"]
     return ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope )
 
 SHEET_ID = "11t_voMmPrzPF3r_CrvXpreXOh5eZPEKxFLoTaddp43g"
+FOLDER_ID = "1Ggs1BCHsnBwCx3A3uB1y2USPoqKGsViI" # المجلد الذي أنشأته
 
 @st.cache_resource
 def get_gsheet_client():
@@ -37,7 +37,6 @@ def get_orders():
             df['Due Date'] = pd.to_datetime(df['Due Date'], errors='coerce')
         return df
     except Exception as e:
-        st.error(f"خطأ في جلب البيانات: {str(e)}")
         return pd.DataFrame()
 
 @st.cache_data(ttl=60)
@@ -92,14 +91,21 @@ def update_order_status(order_id, status, invoice_url=''):
 def upload_to_drive(file_content, file_name):
     try:
         creds = get_creds()
-        # بناء الخدمة باستخدام التوثيق المباشر
         from googleapiclient.discovery import build
         service = build('drive', 'v3', credentials=creds)
         
-        file_metadata = {'name': file_name, 'mimeType': 'application/pdf'}
+        file_metadata = {
+            'name': file_name, 
+            'mimeType': 'application/pdf',
+            'parents': [FOLDER_ID]
+        }
+        
         media = MediaIoBaseUpload(io.BytesIO(file_content), mimetype='application/pdf', resumable=True)
         file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
+        
+        # جعل الملف متاحاً للقراءة
         service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
+        
         return file.get('webViewLink')
     except Exception as e:
         st.error(f"خطأ في الرفع: {str(e)}")
