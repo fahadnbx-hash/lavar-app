@@ -1,6 +1,7 @@
-streamlit
-pandas
-gspread
-oauth2client
-plotly
-openpyxl
+streamlit==1.28.1
+pandas==2.0.3
+gspread==5.10.0
+oauth2client==4.1.3
+google-api-python-client==2.100.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.1.0
