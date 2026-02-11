@@ -51,25 +51,36 @@ if page == "واجهة المندوب":
             c1, c2 = st.columns(2)
             with c1:
                 name = st.text_input("اسم العميل")
-                phone = st.text_input("رقم الجوال")
+                cr = st.text_input("السجل التجاري")
                 tax = st.text_input("الرقم الضريبي")
+                address = st.text_input("العنوان")
+                phone = st.text_input("رقم الجوال")
             with c2:
-                prod = st.selectbox("المنتج", stock_df['Product'].tolist() if not stock_df.empty else ["صابون لآفار"])
+                prod_list = stock_df['Product'].tolist() if not stock_df.empty else ["صابون لآفار 3 لتر"]
+                prod = st.selectbox("المنتج", prod_list)
                 qty = st.number_input("الكمية", 1, 1000, 1)
                 price = st.number_input("سعر العلبة", 0.0, 1000.0, 0.0)
+                days = st.number_input("أيام الاستحقاق", 0, 99, 30)
+            
             if st.button("التالي ➡️", use_container_width=True):
-                add_order(name, "", tax, "", phone, prod, qty, 30, price if price > 0 else None)
-                st.success("✅ تم حفظ الطلب!"); st.rerun()
+                add_order(name, cr, tax, address, phone, prod, qty, days, price if price > 0 else None)
+                st.success("✅ تم حفظ الطلب!")
+                st.rerun()
 
         st.subheader("🚀 طلبات بانتظار الاعتماد")
         drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
         for _, row in drafts.iterrows():
             with st.container(border=True):
-                col_info, col_btn = st.columns([3, 1])
-                with col_info: st.write(f"**العميل:** {row['Customer Name']} | **الإجمالي:** {row['Total Amount']} ريال")
+                col_info, col_btn, col_del = st.columns([3, 1, 0.5])
+                with col_info:
+                    st.write(f"**العميل:** {row['Customer Name']} | **المنتج:** {row['Product']}")
+                    st.write(f"📦 الكمية: {row['Quantity']} | 💰 سعر العلبة: {row['Unit Price']} ريال | 💵 الإجمالي: {row['Total Amount']} ريال")
                 with col_btn:
                     if st.button("إرسال للمحاسب", key=f"p_{row['Order ID']}", use_container_width=True):
                         update_order_status(row['Order ID'], 'Pending'); st.rerun()
+                with col_del:
+                    if st.button("🗑️", key=f"d_{row['Order ID']}", use_container_width=True):
+                        delete_order(row['Order ID']); st.rerun()
 
     with tab2:
         st.subheader("📍 تسجيل زيارة ميدانية")
@@ -85,7 +96,7 @@ if page == "واجهة المندوب":
                 add_visit(st.session_state.user_name, v_customer, v_type, pot_qty, str(pot_date), v_notes)
                 st.success("✅ تم تسجيل الزيارة بنجاح!")
 
-# --- واجهة المحاسب ---
+# واجهات المحاسب والإدارة تبقى كما هي مع إضافة تقارير الزيارات للإدارة
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
     orders = get_orders()
@@ -94,45 +105,41 @@ elif page == "واجهة المحاسب":
         with st.container(border=True):
             st.write(f"**طلب #{row['Order ID']}** - العميل: {row['Customer Name']} - المبلغ: {row['Total Amount']} ريال")
             pdf_file = st.file_uploader("ارفع الفاتورة", type=['pdf'], key=f"f_{row['Order ID']}")
-            if pdf_file and st.button("✅ اعتماد ورفع", key=f"b_{row['Order ID']}", use_container_width=True):
-                url = upload_to_github(pdf_file.getvalue(), f"inv_{row['Order ID']}.pdf")
-                if url: update_order_status(row['Order ID'], 'Invoiced', url); st.rerun()
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                if pdf_file and st.button("✅ اعتماد ورفع", key=f"b_{row['Order ID']}", use_container_width=True):
+                    url = upload_to_github(pdf_file.getvalue(), f"inv_{row['Order ID']}.pdf")
+                    if url: update_order_status(row['Order ID'], 'Invoiced', url); st.rerun()
+            with col2:
+                if st.button("🗑️", key=f"da_{row['Order ID']}", use_container_width=True):
+                    delete_order(row['Order ID']); st.rerun()
 
-# --- واجهة الإدارة ---
 elif page == "واجهة الإدارة":
     st.header("📊 لوحة التحكم والمراقبة")
     tab_m, tab_p, tab_v = st.tabs(["💰 المبيعات", "🏭 تخطيط الإنتاج", "📍 نشاط الميدان"])
-    
     orders = get_orders()
     visits = get_visits()
     
     with tab_m:
         if not orders.empty:
             invoiced = orders[orders['Status'] == 'Invoiced']
-            st.metric("💰 إجمالي المبيعات المحققة", f"{invoiced['Total Amount'].sum()} ريال")
+            st.metric("💰 إجمالي المبيعات المفوترة", f"{invoiced['Total Amount'].sum()} ريال")
             st.dataframe(orders, use_container_width=True)
         else: st.info("لا توجد بيانات")
 
     with tab_p:
-        st.subheader("🔮 توقعات الطلب القادم (بناءً على سجل الزيارات)")
+        st.subheader("🔮 توقعات الطلب القادم")
         if not visits.empty:
-            # تصفية الزيارات التي تحتوي على طلبات محتملة
             pot_orders = visits[visits['Potential Qty'] > 0].copy()
             if not pot_orders.empty:
-                total_pot = pot_orders['Potential Qty'].sum()
-                st.metric("📦 إجمالي الكميات المحتملة المطلوبة قريباً", f"{total_pot} علبة")
-                
-                # رسم بياني للإنتاج المتوقع
-                fig = px.bar(pot_orders, x='Potential Date', y='Potential Qty', color='Customer Name', title="الجدول الزمني للإنتاج المتوقع")
+                st.metric("📦 إجمالي الكميات المحتملة", f"{pot_orders['Potential Qty'].sum()} علبة")
+                fig = px.bar(pot_orders, x='Potential Date', y='Potential Qty', color='Customer Name', title="الجدول الزمني للإنتاج")
                 st.plotly_chart(fig, use_container_width=True)
-                
-                st.write("📋 تفاصيل الطلبيات المتوقعة:")
                 st.table(pot_orders[['Customer Name', 'Potential Qty', 'Potential Date', 'Salesman']])
-            else: st.info("لا توجد طلبات محتملة مسجلة حالياً")
-        else: st.info("سجل الزيارات فارغ")
+            else: st.info("لا توجد طلبات محتملة")
 
     with tab_v:
-        st.subheader("📍 سجل نشاط المناديب اليومي")
+        st.subheader("📍 سجل نشاط المناديب")
         if not visits.empty:
-            st.dataframe(visits[['Date', 'Salesman', 'Customer Name', 'Visit Type', 'Notes']], use_container_width=True)
-        else: st.info("لا توجد زيارات مسجلة")
+            st.dataframe(visits, use_container_width=True)
+        else: st.info("لا توجد زيارات")
