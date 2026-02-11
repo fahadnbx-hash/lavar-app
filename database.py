@@ -21,58 +21,29 @@ def get_gsheet_client():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope )
     return gspread.authorize(creds)
 
-SHEET_NAME = "Lavar_Database"
+# الـ ID الخاص بملفك
+SHEET_ID = "11t_voMmPrzPF3r_CrvXpreXOh5eZPEKxFLoTaddp43g"
 
 def init_db():
-    try:
-        client = get_gsheet_client()
-        sh = client.open(SHEET_NAME)
-        
-        # التأكد من ورقة Orders
-        try:
-            ws_orders = sh.worksheet("Orders")
-        except:
-            ws_orders = sh.add_worksheet(title="Orders", rows="100", cols="20")
-            ws_orders.append_row(['Order ID', 'Customer Name', 'CR Number', 'Tax Number', 'Address', 'Phone', 'Product', 'Quantity', 'Unit Price', 'Total Amount', 'Due Date', 'Status', 'Invoice URL', 'Customer Docs'])
-            
-        # التأكد من ورقة Stock
-        try:
-            ws_stock = sh.worksheet("Stock")
-        except:
-            ws_stock = sh.add_worksheet(title="Stock", rows="100", cols="10")
-            ws_stock.append_row(['Product', 'Quantity', 'Min Limit', 'Price'])
-            ws_stock.append_row(['صابون لآفار 3 لتر', 150, 30, 45])
-            
-        return True
-    except:
-        return False
+    return True
 
 def get_orders():
     client = get_gsheet_client()
-    sh = client.open(SHEET_NAME)
+    sh = client.open_by_key(SHEET_ID)
     ws = sh.worksheet("Orders")
     data = ws.get_all_records()
-    
-    # إذا كان الشيت فارغاً تماماً (بدون عناوين)
     if not data:
         columns = ['Order ID', 'Customer Name', 'CR Number', 'Tax Number', 'Address', 'Phone', 'Product', 'Quantity', 'Unit Price', 'Total Amount', 'Due Date', 'Status', 'Invoice URL', 'Customer Docs']
         return pd.DataFrame(columns=columns)
-        
     df = pd.DataFrame(data)
-    
-    # التأكد من وجود عمود Status برمجياً لتجنب KeyError
-    if 'Status' not in df.columns:
-        for col in ['Order ID', 'Customer Name', 'CR Number', 'Tax Number', 'Address', 'Phone', 'Product', 'Quantity', 'Unit Price', 'Total Amount', 'Due Date', 'Status', 'Invoice URL', 'Customer Docs']:
-            if col not in df.columns:
-                df[col] = None
-                
+    if 'Status' not in df.columns: df['Status'] = None
     if not df.empty:
         df['Due Date'] = pd.to_datetime(df['Due Date'], errors='coerce')
     return df
 
 def add_order(customer_name, cr_number, tax_number, address, phone, product, quantity, days_to_due, custom_price=None, docs_path='', status='Draft'):
     client = get_gsheet_client()
-    sh = client.open(SHEET_NAME)
+    sh = client.open_by_key(SHEET_ID)
     ws_orders = sh.worksheet("Orders")
     ws_stock = sh.worksheet("Stock")
     
@@ -93,7 +64,7 @@ def add_order(customer_name, cr_number, tax_number, address, phone, product, qua
 
 def update_order_status(order_id, status, invoice_url='', docs_path=''):
     client = get_gsheet_client()
-    sh = client.open(SHEET_NAME)
+    sh = client.open_by_key(SHEET_ID)
     ws = sh.worksheet("Orders")
     all_values = ws.get_all_values()
     for i, row in enumerate(all_values):
@@ -107,16 +78,14 @@ def update_order_status(order_id, status, invoice_url='', docs_path=''):
 
 def get_stock():
     client = get_gsheet_client()
-    sh = client.open(SHEET_NAME)
+    sh = client.open_by_key(SHEET_ID)
     ws = sh.worksheet("Stock")
     data = ws.get_all_records()
-    if not data:
-        return pd.DataFrame(columns=['Product', 'Quantity', 'Min Limit', 'Price'])
-    return pd.DataFrame(data)
+    return pd.DataFrame(data) if data else pd.DataFrame(columns=['Product', 'Quantity', 'Min Limit', 'Price'])
 
 def update_stock_quantity(product, new_quantity):
     client = get_gsheet_client()
-    sh = client.open(SHEET_NAME)
+    sh = client.open_by_key(SHEET_ID)
     ws = sh.worksheet("Stock")
     all_values = ws.get_all_values()
     for i, row in enumerate(all_values):
