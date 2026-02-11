@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
-from database import init_db, get_orders, add_order, update_order_status, get_stock, upload_to_github, delete_order
+from database import init_db, get_orders, add_order, update_order_status, get_stock, upload_to_github, delete_order, update_stock_quantity
 from datetime import datetime, timedelta
+import plotly.express as px
 
 # إعداد الصفحة
 st.set_page_config(page_title="لآفار للمنظفات", layout="wide")
@@ -38,8 +39,6 @@ if page == "واجهة المندوب":
             st.rerun()
 
     st.divider()
-    
-    # قسم طلبات بانتظار الاعتماد
     st.subheader("🚀 طلبات بانتظار الاعتماد")
     drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
     if drafts.empty:
@@ -61,8 +60,6 @@ if page == "واجهة المندوب":
                         st.rerun()
 
     st.divider()
-    
-    # قسم الفواتير الجاهزة
     st.subheader("✅ فواتير جاهزة للمشاركة")
     inv = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
     if inv.empty:
@@ -111,11 +108,56 @@ elif page == "واجهة المحاسب":
 
 # --- واجهة الإدارة ---
 elif page == "واجهة الإدارة":
-    st.header("📊 الإدارة")
+    st.header("📊 لوحة التحكم والإدارة")
     orders = get_orders()
+    stock_df = get_stock()
+    
     if not orders.empty:
+        # 1. إحصائيات سريعة
+        st.subheader("📈 نظرة عامة")
+        c1, c2, c3, c4 = st.columns(4)
+        invoiced = orders[orders['Status'] == 'Invoiced']
+        pending = orders[orders['Status'] == 'Pending']
+        
+        c1.metric("💰 إجمالي المبيعات المفوترة", f"{invoiced['Total Amount'].sum()} ريال")
+        c2.metric("⏳ طلبات معلقة", len(pending))
+        c3.metric("📦 كمية العلب المباعة", invoiced['Quantity'].sum())
+        c4.metric("📈 متوسط قيمة الطلب", f"{round(invoiced['Total Amount'].mean(), 2) if not invoiced.empty else 0} ريال")
+        
+        st.divider()
+        
+        # 2. رسم بياني للتدفق النقدي (100 يوم)
+        st.subheader("📅 توقعات التدفق النقدي (100 يوم)")
+        if not invoiced.empty:
+            cash_flow = invoiced.groupby('Due Date')['Total Amount'].sum().reset_index()
+            fig = px.line(cash_flow, x='Due Date', y='Total Amount', title='المبالغ المتوقع تحصيلها بناءً على تاريخ الاستحقاق', markers=True)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        st.divider()
+        
+        # 3. إدارة المخزون والأسعار
+        st.subheader("📦 إدارة المخزون والأسعار")
+        with st.expander("تعديل كميات وأسعار المخزون"):
+            for idx, row in stock_df.iterrows():
+                col1, col2, col3 = st.columns([2, 1, 1])
+                with col1:
+                    st.write(f"**المنتج:** {row['Product']}")
+                with col2:
+                    new_qty = st.number_input(f"الكمية لـ {row['Product']}", value=int(row['Quantity']), key=f"sq_{idx}")
+                with col3:
+                    if st.button(f"تحديث {row['Product']}", key=f"sb_{idx}"):
+                        update_stock_quantity(row['Product'], new_qty)
+                        st.success("تم التحديث!")
+                        st.rerun()
+
+        st.divider()
+        
+        # 4. سجل العمليات الكامل
+        st.subheader("📜 سجل العمليات التفصيلي")
         st.dataframe(orders, use_container_width=True)
+        
+        # زر التصدير
         csv = orders.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 تحميل سجل العمليات", csv, "lavar_orders.csv", "text/csv")
+        st.download_button("📥 تحميل سجل العمليات كملف Excel", csv, "lavar_report.csv", "text/csv", use_container_width=True)
     else:
-        st.info("لا توجد بيانات")
+        st.info("لا توجد بيانات حالياً في النظام")
