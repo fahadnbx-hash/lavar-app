@@ -29,33 +29,34 @@ if page == "واجهة المندوب":
             prod_list = stock_df['Product'].tolist() if not stock_df.empty else ["صابون لآفار 3 لتر"]
             prod = st.selectbox("المنتج", prod_list)
             qty = st.number_input("الكمية", 1, 1000, 1)
-            price = st.number_input("سعر الوحدة (اختياري)", 0.0, 1000.0, 0.0)
+            price = st.number_input("سعر العلبة", 0.0, 1000.0, 0.0)
             days = st.number_input("أيام الاستحقاق", 0, 99, 30)
-        if st.button("💾 حفظ كمسودة", use_container_width=True):
+        
+        if st.button("التالي ➡️", use_container_width=True):
             add_order(name, cr, tax, address, phone, prod, qty, days, price if price > 0 else None)
-            st.success("تم الحفظ بنجاح!")
+            st.success("✅ تم حفظ الطلب بنجاح!")
             st.rerun()
 
     st.divider()
     
-    # قسم المسودات
-    st.subheader("🚀 مسودات بانتظار الاعتماد")
+    # قسم طلبات بانتظار الاعتماد
+    st.subheader("🚀 طلبات بانتظار الاعتماد")
     drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
     if drafts.empty:
-        st.info("لا توجد مسودات حالياً")
+        st.info("لا توجد طلبات بانتظار الاعتماد حالياً")
     else:
         for _, row in drafts.iterrows():
             with st.container(border=True):
                 col_info, col_btn, col_del = st.columns([3, 1, 0.6])
                 with col_info:
                     st.markdown(f"**العميل:** {row['Customer Name']} | **المنتج:** {row['Product']}")
-                    st.markdown(f"🔢 الكمية: `{row['Quantity']}` | 💵 السعر: `{row['Unit Price']} ريال` | 💰 الإجمالي: **{row['Total Amount']} ريال**")
+                    st.markdown(f"🔢 الكمية: `{row['Quantity']}` | 💵 سعر العلبة: `{row['Unit Price']} ريال` | 💰 الإجمالي: **{row['Total Amount']} ريال**")
                 with col_btn:
-                    if st.button("🚀 إرسال للمحاسب", key=f"p_{row['Order ID']}", use_container_width=True):
+                    if st.button("إرسال للمحاسب", key=f"p_{row['Order ID']}", use_container_width=True):
                         update_order_status(row['Order ID'], 'Pending')
                         st.rerun()
                 with col_del:
-                    if st.button("🗑️", key=f"d_{row['Order ID']}", help="حذف المسودة", use_container_width=True):
+                    if st.button("🗑️", key=f"d_{row['Order ID']}", help="حذف الطلب", use_container_width=True):
                         delete_order(row['Order ID'])
                         st.rerun()
 
@@ -93,7 +94,7 @@ elif page == "واجهة المحاسب":
                 col_info, col_del = st.columns([4, 0.5])
                 with col_info:
                     st.write(f"**العميل:** {row['Customer Name']} | **المبلغ:** {row['Total Amount']} ريال")
-                    st.write(f"🔢 الكمية: {row['Quantity']} | 💵 السعر: {row['Unit Price']} ريال")
+                    st.write(f"🔢 الكمية: {row['Quantity']} | 💵 سعر العلبة: {row['Unit Price']} ريال")
                 with col_del:
                     if st.button("🗑️", key=f"da_{row['Order ID']}", help="إلغاء الطلب", use_container_width=True):
                         delete_order(row['Order ID'])
