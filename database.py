@@ -12,7 +12,6 @@ def get_creds():
     return ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope )
 
 SHEET_ID = "11t_voMmPrzPF3r_CrvXpreXOh5eZPEKxFLoTaddp43g"
-# قراءة التوكن من الإعدادات السرية للأمان
 GITHUB_TOKEN = st.secrets["github_token"]
 REPO_NAME = "fahadnbx-hash/lavar-app"
 
@@ -21,20 +20,15 @@ def get_gsheet_client():
     return gspread.authorize(get_creds())
 
 def upload_to_github(file_content, file_name):
-    """رفع الملف إلى GitHub وجلب الرابط المباشر"""
     try:
         g = Github(GITHUB_TOKEN)
         repo = g.get_repo(REPO_NAME)
         path = f"invoices/{file_name}"
-        
-        # رفع الملف
         repo.create_file(path, f"Upload invoice {file_name}", file_content, branch="main")
-        
-        # إنشاء الرابط المباشر (Raw link)
         raw_url = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{path}"
         return raw_url
     except Exception as e:
-        st.error(f"خطأ في الرفع لـ GitHub: {str(e )}")
+        st.error(f"خطأ في الرفع: {str(e )}")
         return None
 
 @st.cache_data(ttl=5)
@@ -73,7 +67,7 @@ def add_order(customer_name, cr_number, tax_number, address, phone, product, qua
         unit_price = custom_price if custom_price and custom_price > 0 else (stock_df[stock_df['Product'] == product]['Price'].values[0] if product in stock_df['Product'].values else 0)
         total_amount = float(unit_price) * int(quantity)
         due_date = datetime.now() + timedelta(days=int(days_to_due))
-        order_id = len(ws_orders.get_all_values())
+        order_id = datetime.now().strftime("%Y%m%d%H%M%S") # استخدام توقيت فريد كـ ID
         new_row = [order_id, customer_name, cr_number, tax_number, address, phone, product, quantity, unit_price, total_amount, due_date.strftime('%Y-%m-%d'), status, '', '']
         ws_orders.append_row(new_row)
         st.cache_data.clear()
@@ -95,6 +89,23 @@ def update_order_status(order_id, status, invoice_url=''):
                 return True
         return False
     except Exception as e:
+        return False
+
+def delete_order(order_id):
+    """حذف الطلب نهائياً من الشيت"""
+    try:
+        client = get_gsheet_client()
+        sh = client.open_by_key(SHEET_ID)
+        ws = sh.worksheet("Orders")
+        all_values = ws.get_all_values()
+        for i, row in enumerate(all_values):
+            if str(row[0]) == str(order_id):
+                ws.delete_rows(i + 1)
+                st.cache_data.clear()
+                return True
+        return False
+    except Exception as e:
+        st.error(f"خطأ في الحذف: {str(e)}")
         return False
 
 def init_db(): return True
