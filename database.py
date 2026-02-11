@@ -3,7 +3,6 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime, timedelta
 import streamlit as st
-import base64
 from github import Github
 
 def get_creds():
@@ -25,8 +24,7 @@ def upload_to_github(file_content, file_name):
         repo = g.get_repo(REPO_NAME)
         path = f"invoices/{file_name}"
         repo.create_file(path, f"Upload invoice {file_name}", file_content, branch="main")
-        raw_url = f"https://raw.githubusercontent.com/{REPO_NAME}/main/{path}"
-        return raw_url
+        return f"https://raw.githubusercontent.com/{REPO_NAME}/main/{path}"
     except Exception as e:
         st.error(f"خطأ في الرفع: {str(e )}")
         return None
@@ -41,7 +39,7 @@ def get_orders():
         if not data: return pd.DataFrame()
         df = pd.DataFrame(data)
         if not df.empty and 'Due Date' in df.columns:
-            df['Due Date'] = pd.to_datetime(df['Due Date'], errors='coerce')
+            df['Due Date'] = pd.to_datetime(df['Due Date'], errors='coerce').dt.date
         return df
     except Exception as e:
         return pd.DataFrame()
@@ -107,7 +105,6 @@ def delete_order(order_id):
         return False
 
 def update_stock_quantity(product, new_quantity):
-    """تحديث كمية المنتج في المخزون"""
     try:
         client = get_gsheet_client()
         sh = client.open_by_key(SHEET_ID)
