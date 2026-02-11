@@ -1,149 +1,54 @@
 import pandas as pd
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime, timedelta
 import streamlit as st
-from github import Github
-
-def get_creds():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds_info = st.secrets["gcp_service_account"]
-    return ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope )
-
-SHEET_ID = "11t_voMmPrzPF3r_CrvXpreXOh5eZPEKxFLoTaddp43g"
-GITHUB_TOKEN = st.secrets["github_token"]
-REPO_NAME = "fahadnbx-hash/lavar-app"
-
-@st.cache_resource
-def get_gsheet_client():
-    return gspread.authorize(get_creds())
+from datetime import datetime
 
 def init_db():
-    """إنشاء ورقة العمل الخاصة بالزيارات إذا لم تكن موجودة"""
-    try:
-        client = get_gsheet_client()
-        sh = client.open_by_key(SHEET_ID)
-        try:
-            sh.worksheet("Visits")
-        except gspread.exceptions.WorksheetNotFound:
-            sh.add_worksheet(title="Visits", rows="1000", cols="10")
-            ws = sh.worksheet("Visits")
-            ws.append_row(["Visit ID", "Date", "Salesman", "Customer Name", "Visit Type", "Potential Qty", "Potential Date", "Notes", "Status"])
-        return True
-    except: return False
+    # تهيئة مخازن البيانات في حال عدم وجودها (Session State)
+    if 'orders_df' not in st.session_state:
+        st.session_state.orders_df = pd.DataFrame(columns=["Order ID", "Customer Name", "Product", "Quantity", "Unit Price", "Total Amount", "Status", "Order Date", "Due Date", "Invoice URL"])
+    if 'stock_df' not in st.session_state:
+        st.session_state.stock_df = pd.DataFrame([
+            {"Product": "صابون لآفار 3 لتر", "Quantity": 500},
+            {"Product": "منظف أرضيات 1 لتر", "Quantity": 300},
+            {"Product": "معطر جو 500 مل", "Quantity": 150}
+        ])
+    if 'visits_df' not in st.session_state:
+        st.session_state.visits_df = pd.DataFrame(columns=["Date", "Salesman", "Customer Name", "Visit Type", "Potential Qty", "Potential Date", "Notes"])
 
-def upload_to_github(file_content, file_name):
-    try:
-        g = Github(GITHUB_TOKEN)
-        repo = g.get_repo(REPO_NAME)
-        path = f"invoices/{file_name}"
-        repo.create_file(path, f"Upload invoice {file_name}", file_content, branch="main")
-        return f"https://raw.githubusercontent.com/{REPO_NAME}/main/{path}"
-    except: return None
+def get_orders(): return st.session_state.orders_df
+def get_stock(): return st.session_state.stock_df
+def get_visits(): return st.session_state.visits_df
 
-@st.cache_data(ttl=5 )
-def get_orders():
-    try:
-        client = get_gsheet_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Orders")
-        data = ws.get_all_records()
-        df = pd.DataFrame(data) if data else pd.DataFrame()
-        if not df.empty and 'Due Date' in df.columns:
-            df['Due Date'] = pd.to_datetime(df['Due Date'], errors='coerce').dt.date
-        return df
-    except: return pd.DataFrame()
+def add_order(name, cr, tax, address, phone, prod, qty, days, price):
+    new_id = f"ORD{len(st.session_state.orders_df) + 1:03d}"
+    due = (datetime.now() + pd.Timedelta(days=days)).strftime("%Y-%m-%d")
+    new_row = pd.DataFrame([{
+        "Order ID": new_id, "Customer Name": name, "Product": prod, "Quantity": qty, 
+        "Unit Price": price, "Total Amount": qty * price, "Status": "Draft", 
+        "Order Date": datetime.now().strftime("%Y-%m-%d"), "Due Date": due, "Invoice URL": ""
+    }])
+    st.session_state.orders_df = pd.concat([st.session_state.orders_df, new_row], ignore_index=True)
 
-@st.cache_data(ttl=5)
-def get_visits():
-    """جلب سجل الزيارات"""
-    try:
-        client = get_gsheet_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Visits")
-        data = ws.get_all_records()
-        return pd.DataFrame(data) if data else pd.DataFrame()
-    except: return pd.DataFrame()
+def update_order_status(order_id, status, url=""):
+    idx = st.session_state.orders_df[st.session_state.orders_df["Order ID"] == order_id].index
+    if not idx.empty:
+        st.session_state.orders_df.loc[idx, "Status"] = status
+        if url: st.session_state.orders_df.loc[idx, "Invoice URL"] = url
 
-@st.cache_data(ttl=30)
-def get_stock():
-    try:
-        client = get_gsheet_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Stock")
-        data = ws.get_all_records()
-        return pd.DataFrame(data) if data else pd.DataFrame()
-    except: return pd.DataFrame()
-
-def add_order(customer_name, cr_number, tax_number, address, phone, product, quantity, days_to_due, custom_price=None, status='Draft'):
-    try:
-        client = get_gsheet_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws_orders = sh.worksheet("Orders")
-        ws_stock = sh.worksheet("Stock")
-        stock_df = pd.DataFrame(ws_stock.get_all_records())
-        unit_price = custom_price if custom_price and custom_price > 0 else (stock_df[stock_df['Product'] == product]['Price'].values[0] if product in stock_df['Product'].values else 0)
-        total_amount = float(unit_price) * int(quantity)
-        due_date = datetime.now() + timedelta(days=int(days_to_due))
-        order_id = datetime.now().strftime("%Y%m%d%H%M%S")
-        new_row = [order_id, customer_name, cr_number, tax_number, address, phone, product, quantity, unit_price, total_amount, due_date.strftime('%Y-%m-%d'), status, '', '']
-        ws_orders.append_row(new_row)
-        st.cache_data.clear()
-        return True
-    except: return False
-
-def add_visit(salesman, customer_name, visit_type, pot_qty, pot_date, notes):
-    """إضافة زيارة جديدة"""
-    try:
-        client = get_gsheet_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Visits")
-        visit_id = datetime.now().strftime("V%Y%m%d%H%M%S")
-        date_now = datetime.now().strftime("%Y-%m-%d")
-        ws.append_row([visit_id, date_now, salesman, customer_name, visit_type, pot_qty, pot_date, notes, "Active"])
-        st.cache_data.clear()
-        return True
-    except: return False
-
-def update_order_status(order_id, status, invoice_url=''):
-    try:
-        client = get_gsheet_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Orders")
-        all_values = ws.get_all_values()
-        for i, row in enumerate(all_values):
-            if str(row[0]) == str(order_id):
-                ws.update_cell(i + 1, 12, status)
-                if invoice_url: ws.update_cell(i + 1, 13, invoice_url)
-                st.cache_data.clear()
-                return True
-        return False
-    except: return False
+def update_stock_quantity(product_name, new_qty):
+    idx = st.session_state.stock_df[st.session_state.stock_df["Product"] == product_name].index
+    if not idx.empty:
+        st.session_state.stock_df.loc[idx, "Quantity"] = new_qty
 
 def delete_order(order_id):
-    try:
-        client = get_gsheet_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Orders")
-        all_values = ws.get_all_values()
-        for i, row in enumerate(all_values):
-            if str(row[0]) == str(order_id):
-                ws.delete_rows(i + 1)
-                st.cache_data.clear()
-                return True
-        return False
-    except: return False
+    st.session_state.orders_df = st.session_state.orders_df[st.session_state.orders_df["Order ID"] != order_id].reset_index(drop=True)
 
-def update_stock_quantity(product, new_quantity):
-    try:
-        client = get_gsheet_client()
-        sh = client.open_by_key(SHEET_ID)
-        ws = sh.worksheet("Stock")
-        all_values = ws.get_all_values()
-        for i, row in enumerate(all_values):
-            if row[0] == product:
-                ws.update_cell(i + 1, 2, new_quantity)
-                st.cache_data.clear()
-                return True
-        return False
-    except: return False
+def add_visit(salesman, customer, v_type, pot_qty, pot_date, notes):
+    new_v = pd.DataFrame([{
+        "Date": datetime.now().strftime("%Y-%m-%d"), "Salesman": salesman, 
+        "Customer Name": customer, "Visit Type": v_type, "Potential Qty": pot_qty, 
+        "Potential Date": pot_date, "Notes": notes
+    }])
+    st.session_state.visits_df = pd.concat([st.session_state.visits_df, new_v], ignore_index=True)
+
+def upload_to_github(content, filename): return f"https://lavar-drive.com/{filename}" # رابط تجريبي
