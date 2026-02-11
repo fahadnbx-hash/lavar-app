@@ -6,8 +6,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # إعداد الصفحة
-st.set_page_config(page_title="نظام لآفار لدعم القرار", layout="wide")
+st.set_page_config(page_title="نظام لآفار لذكاء الأعمال", layout="wide")
 init_db()
+
+# تكلفة الإنتاج الثابتة
+UNIT_COST = 5.0
 
 # --- نظام تسجيل الدخول (يبقى كما هو) ---
 if 'logged_in' not in st.session_state:
@@ -40,7 +43,7 @@ available_pages = ["واجهة المندوب", "واجهة المحاسب", "و
                   (["واجهة المحاسب"] if st.session_state.role == "accountant" else ["واجهة المندوب"])
 page = st.sidebar.radio("📌 الانتقال إلى:", available_pages)
 
-# --- واجهة المندوب وواجهة المحاسب (تبقى كما هي لضمان الاستقرار) ---
+# --- واجهات المندوب والمحاسب (مستقرة كما هي) ---
 if page == "واجهة المندوب":
     st.header("📋 واجهة المندوب")
     tab1, tab2 = st.tabs(["🛒 إدارة الطلبات", "📍 سجل الزيارات الميدانية"])
@@ -129,83 +132,105 @@ elif page == "واجهة المحاسب":
                     if pdf and st.button("✅ اعتماد ورفع", key=f"b_{row['Order ID']}", use_container_width=True):
                         url = upload_to_github(pdf.getvalue(), f"inv_{row['Order ID']}.pdf")
                         if url: update_order_status(row['Order ID'], 'Invoiced', url); st.rerun()
-                with c2:
+                with col2:
                     if st.button("🗑️", key=f"da_{row['Order ID']}", use_container_width=True):
                         delete_order(row['Order ID']); st.rerun()
     else: st.info("📭 لا توجد طلبات معلقة")
 
-# --- واجهة الإدارة (التطوير الاستراتيجي الجديد) ---
+# --- واجهة الإدارة (التحليل الذكي المطور) ---
 elif page == "واجهة الإدارة":
-    st.header("📊 لوحة دعم القرار والإنتاج")
-    tab_prod, tab_sales, tab_visits = st.tabs(["🏭 تخطيط الإنتاج الذكي", "💰 المبيعات والسيولة", "📍 مراقبة الميدان"])
+    st.header("📊 مركز ذكاء الأعمال ودعم القرار")
+    tab_prod, tab_sales, tab_visits = st.tabs(["🏭 محرك تخطيط الإنتاج الذكي", "💰 تحليل المبيعات والسيولة", "📍 مراقبة نشاط الميدان"])
     orders = get_orders()
     visits = get_visits()
+    stock_df = get_stock()
     
     with tab_prod:
-        st.subheader("🎯 خطة الإنتاج الموصى بها (أرباع السنة القادمة)")
+        st.subheader("🧠 محاكي توقعات الإنتاج والسيولة")
+        confidence = st.slider("🎯 نسبة الثقة في توقعات المناديب (%)", 10, 100, 80)
+        
         if not visits.empty:
-            # معالجة التواريخ
             visits['Potential Date'] = pd.to_datetime(visits['Potential Date'])
             visits['Quarter'] = visits['Potential Date'].dt.to_period('Q').astype(str)
             
-            # حساب الإنتاج الموصى به لكل ربع
-            q_summary = visits.groupby('Quarter')['Potential Qty'].sum().reset_index()
+            # حساب الكميات المتوقعة بناءً على نسبة الثقة
+            visits['Adjusted Qty'] = visits['Potential Qty'] * (confidence / 100)
+            q_summary = visits.groupby('Quarter')['Adjusted Qty'].sum().reset_index()
             
-            # إضافة بيانات التدفق النقدي لنفس الأرباع للمقارنة
+            # حساب تكلفة الإنتاج المتوقعة (الكمية المعدلة × 5 ريال)
+            q_summary['Production Cost'] = q_summary['Adjusted Qty'] * UNIT_COST
+            
+            # جلب بيانات التدفق النقدي
             if not orders.empty:
                 invoiced = orders[orders['Status'] == 'Invoiced'].copy()
                 invoiced['Due Date'] = pd.to_datetime(invoiced['Due Date'])
                 invoiced['Quarter'] = invoiced['Due Date'].dt.to_period('Q').astype(str)
                 cash_summary = invoiced.groupby('Quarter')['Total Amount'].sum().reset_index()
-                merged_data = pd.merge(q_summary, cash_summary, on='Quarter', how='outer').fillna(0)
+                merged = pd.merge(q_summary, cash_summary, on='Quarter', how='outer').fillna(0)
             else:
-                merged_data = q_summary
-                merged_data['Total Amount'] = 0
+                merged = q_summary
+                merged['Total Amount'] = 0
 
-            # رسم بياني مزدوج: الإنتاج vs السيولة
-            fig = go.Figure()
-            fig.add_trace(go.Bar(x=merged_data['Quarter'], y=merged_data['Potential Qty'], name='حجم الإنتاج الموصى به (علبة)', marker_color='blue'))
-            fig.add_trace(go.Scatter(x=merged_data['Quarter'], y=merged_data['Total Amount'], name='التدفق النقدي المتوقع (ريال)', yaxis='y2', line=dict(color='green', width=3)))
+            # 1. تحليل فجوة الإنتاج (Production Gap)
+            current_stock = stock_df['Quantity'].sum() if not stock_df.empty else 0
+            total_needed = merged['Adjusted Qty'].sum()
+            gap = total_needed - current_stock
             
-            fig.update_layout(
-                title='مواءمة الإنتاج مع التدفقات النقدية',
-                xaxis_title='ربع السنة',
-                yaxis=dict(title='كمية الإنتاج (علبة)'),
-                yaxis2=dict(title='السيولة (ريال)', overlaying='y', side='right'),
-                legend=dict(x=0, y=1.1, orientation='h')
-            )
+            c1, c2, c3 = st.columns(3)
+            c1.metric("📦 إجمالي الطلب المتوقع", f"{int(total_needed)} علبة")
+            c2.metric("🏠 المخزون الحالي", f"{int(current_stock)} علبة")
+            c3.metric("🚨 فجوة الإنتاج (المطلوب تصنيعه)", f"{int(max(0, gap))} علبة", delta=f"{int(gap)} علبة", delta_color="inverse")
+
+            # 2. تحليل الميزانية والسيولة
+            total_prod_cost = max(0, gap) * UNIT_COST
+            total_expected_cash = merged['Total Amount'].sum()
+            
+            st.markdown("---")
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                st.write("### 💵 الميزانية المطلوبة للإنتاج")
+                st.info(f"تحتاج الشركة لتوفير **{total_prod_cost:,.2f} ريال** لتغطية تكاليف إنتاج الفجوة المطلوبة.")
+            with cc2:
+                st.write("### 💳 السيولة القادمة للتحصيل")
+                st.success(f"من المتوقع تحصيل مبالغ بقيمة **{total_expected_cash:,.2f} ريال** من الفواتير الحالية.")
+
+            # 3. الرسم البياني الذكي للمواءمة المالية
+            fig = go.Figure()
+            fig.add_trace(go.Bar(x=merged['Quarter'], y=merged['Production Cost'], name='تكلفة الإنتاج المطلوبة (ريال)', marker_color='red'))
+            fig.add_trace(go.Scatter(x=merged['Quarter'], y=merged['Total Amount'], name='التدفق النقدي المتوقع (ريال)', line=dict(color='green', width=4)))
+            
+            fig.update_layout(title='المواءمة المالية: تكلفة الإنتاج vs السيولة المتوفرة', xaxis_title='الربع السنوي', yaxis_title='القيمة المالية (ريال)', legend=dict(orientation="h", y=1.1))
             st.plotly_chart(fig, use_container_width=True)
 
-            # جدول دعم القرار
-            st.markdown("### 📋 جدول دعم القرار")
-            st.table(merged_data.rename(columns={
-                'Quarter': 'الفترة (الربع السنوي)',
-                'Potential Qty': 'الإنتاج الموصى به (علبة)',
-                'Total Amount': 'السيولة المتوفرة للتحصيل (ريال)'
+            # 4. جدول دعم القرار
+            st.markdown("### 📋 جدول تفاصيل دعم القرار")
+            merged['Balance'] = merged['Total Amount'] - merged['Production Cost']
+            st.table(merged.rename(columns={
+                'Quarter': 'الفترة',
+                'Adjusted Qty': 'الكمية المتوقعة (علبة)',
+                'Production Cost': 'تكلفة الإنتاج (ريال)',
+                'Total Amount': 'السيولة المتوفرة (ريال)',
+                'Balance': 'الفائض/العجز المالي (ريال)'
             }))
             
-            st.info("💡 **نصيحة النظام:** إذا كانت السيولة المتوفرة (الخط الأخضر) أقل من حجم الإنتاج الموصى به (الأعمدة الزرقاء)، يرجى مراجعة سياسة التحصيل أو تقليل حجم الإنتاج لتجنب عجز السيولة.")
+            if (merged['Balance'] < 0).any():
+                st.warning("⚠️ **تنبيه مالي:** هناك أرباع سنوية يظهر فيها عجز مالي (تكلفة الإنتاج أعلى من التحصيل). يرجى تسريع عمليات التحصيل أو توفير تمويل إضافي.")
         else:
-            st.info("لا توجد بيانات زيارات كافية لبناء خطة الإنتاج.")
+            st.info("لا توجد بيانات زيارات كافية للتحليل.")
 
     with tab_sales:
         if not orders.empty:
             invoiced = orders[orders['Status'] == 'Invoiced'].copy()
-            c1, c2 = st.columns(2)
-            c1.metric("💰 إجمالي المبيعات", f"{invoiced['Total Amount'].sum()} ريال")
-            c2.metric("⏳ فواتير بانتظار التحصيل", len(invoiced))
-            
-            st.subheader("📉 تدفقات الكاش حسب تواريخ الاستحقاق")
+            st.subheader("📉 منحنى التدفق النقدي التراكمي")
             invoiced['Due Date'] = pd.to_datetime(invoiced['Due Date'])
-            cash_flow = invoiced.groupby('Due Date')['Total Amount'].sum().reset_index()
-            fig_cash = px.area(cash_flow, x='Due Date', y='Total Amount', title="منحنى السيولة القادمة")
+            cash_flow = invoiced.groupby('Due Date')['Total Amount'].sum().sort_index().cumsum().reset_index()
+            fig_cash = px.area(cash_flow, x='Due Date', y='Total Amount', title="تراكم السيولة النقدية مع الوقت")
             st.plotly_chart(fig_cash, use_container_width=True)
-            
             st.dataframe(orders, use_container_width=True)
         else: st.info("لا توجد بيانات مبيعات")
 
     with tab_visits:
-        st.subheader("📍 نشاط الميدان والزيارات")
+        st.subheader("📍 مراقبة نشاط المناديب")
         if not visits.empty:
             st.dataframe(visits, use_container_width=True)
         else: st.info("لا توجد زيارات مسجلة")
