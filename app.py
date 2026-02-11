@@ -17,6 +17,7 @@ if page == "واجهة المندوب":
     orders = get_orders()
     stock_df = get_stock()
     
+    # 1. إضافة طلب جديد
     with st.expander("➕ إضافة طلب جديد", expanded=True):
         c1, c2 = st.columns(2)
         with c1:
@@ -32,30 +33,47 @@ if page == "واجهة المندوب":
             custom_price = st.number_input("السعر للوحدة (اختياري - اتركه 0 للسعر الافتراضي)", min_value=0.0, value=0.0)
             days = st.number_input("فترة الاستحقاق (بالأيام)", min_value=0, max_value=99, value=30)
             
-            # حساب تاريخ الاستحقاق تفاعلياً
             calculated_date = datetime.now() + timedelta(days=days)
             st.info(f"📅 تاريخ الاستحقاق المتوقع: {calculated_date.strftime('%Y-%m-%d')}")
 
         if st.button("💾 حفظ كمسودة", use_container_width=True):
-            # إرسال كافة البيانات للدالة
             add_order(name, cr, tax, address, phone, prod, qty, days, custom_price if custom_price > 0 else None)
             st.success("✅ تم حفظ المسودة بنجاح!")
             st.rerun()
 
     st.divider()
+    
+    # 2. مراجعة المسودات مع ملخص البيانات
     st.subheader("🚀 مسودات بانتظار الاعتماد")
     drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
+    
     if drafts.empty:
         st.info("لا توجد مسودات حالياً")
     else:
         for _, row in drafts.iterrows():
             with st.container(border=True):
-                st.write(f"**العميل:** {row['Customer Name']} | **المنتج:** {row['Product']} ({row['Quantity']})")
+                # عرض ملخص البيانات للمندوب
+                col_text, col_metrics = st.columns([2, 1])
+                
+                with col_text:
+                    st.write(f"👤 **العميل:** {row['Customer Name']}")
+                    st.write(f"📦 **المنتج:** {row['Product']}")
+                    st.write(f"📅 **تاريخ الاستحقاق:** {row['Due Date']}")
+                
+                with col_metrics:
+                    # عرض الكمية والسعر والإجمالي بشكل بارز
+                    st.write(f"🔢 **الكمية:** {row['Quantity']}")
+                    st.write(f"💵 **سعر الوحدة:** {row['Unit Price']} ريال")
+                    st.write(f"💰 **الإجمالي:** {row['Total Amount']} ريال")
+                
                 if st.button("🚀 إرسال للمحاسب", key=f"p_{row['Order ID']}", use_container_width=True):
                     update_order_status(row['Order ID'], 'Pending')
+                    st.success("تم الإرسال للمحاسب بنجاح!")
                     st.rerun()
 
     st.divider()
+    
+    # 3. الفواتير الجاهزة
     st.subheader("✅ فواتير جاهزة للمشاركة")
     inv = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
     if inv.empty:
