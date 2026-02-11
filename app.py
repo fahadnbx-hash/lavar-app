@@ -47,6 +47,7 @@ if page == "واجهة المندوب":
     with tab1:
         orders = get_orders()
         stock_df = get_stock()
+        
         with st.expander("➕ إضافة طلب جديد", expanded=True):
             c1, c2 = st.columns(2)
             with c1:
@@ -67,20 +68,35 @@ if page == "واجهة المندوب":
                 st.success("✅ تم حفظ الطلب!")
                 st.rerun()
 
+        st.divider()
         st.subheader("🚀 طلبات بانتظار الاعتماد")
         drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
-        for _, row in drafts.iterrows():
-            with st.container(border=True):
-                col_info, col_btn, col_del = st.columns([3, 1, 0.5])
-                with col_info:
-                    st.write(f"**العميل:** {row['Customer Name']} | **المنتج:** {row['Product']}")
-                    st.write(f"📦 الكمية: {row['Quantity']} | 💰 سعر العلبة: {row['Unit Price']} ريال | 💵 الإجمالي: {row['Total Amount']} ريال")
-                with col_btn:
-                    if st.button("إرسال للمحاسب", key=f"p_{row['Order ID']}", use_container_width=True):
-                        update_order_status(row['Order ID'], 'Pending'); st.rerun()
-                with col_del:
-                    if st.button("🗑️", key=f"d_{row['Order ID']}", use_container_width=True):
-                        delete_order(row['Order ID']); st.rerun()
+        if not drafts.empty:
+            for _, row in drafts.iterrows():
+                with st.container(border=True):
+                    col_info, col_btn, col_del = st.columns([3, 1, 0.5])
+                    with col_info:
+                        st.write(f"**العميل:** {row['Customer Name']} | **المنتج:** {row['Product']}")
+                        st.write(f"📦 الكمية: {row['Quantity']} | 💰 سعر العلبة: {row['Unit Price']} ريال | 💵 الإجمالي: {row['Total Amount']} ريال")
+                    with col_btn:
+                        if st.button("إرسال للمحاسب", key=f"p_{row['Order ID']}", use_container_width=True):
+                            update_order_status(row['Order ID'], 'Pending'); st.rerun()
+                    with col_del:
+                        if st.button("🗑️", key=f"d_{row['Order ID']}", use_container_width=True):
+                            delete_order(row['Order ID']); st.rerun()
+        else: st.info("📭 لا توجد طلبات بانتظار الاعتماد حالياً")
+
+        st.divider()
+        st.subheader("✅ فواتير جاهزة للمشاركة")
+        inv = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
+        if not inv.empty:
+            for _, row in inv.iterrows():
+                with st.container(border=True):
+                    col_info, col_btn = st.columns([3, 1])
+                    with col_info: st.write(f"**العميل:** {row['Customer Name']} | **المبلغ:** {row['Total Amount']} ريال")
+                    with col_btn:
+                        if row['Invoice URL']: st.link_button("📄 فتح الفاتورة", row['Invoice URL'], use_container_width=True)
+        else: st.info("📭 لا توجد فواتير جاهزة حالياً")
 
     with tab2:
         st.subheader("📍 تسجيل زيارة ميدانية")
@@ -95,24 +111,45 @@ if page == "واجهة المندوب":
             if st.form_submit_button("💾 تسجيل الزيارة", use_container_width=True):
                 add_visit(st.session_state.user_name, v_customer, v_type, pot_qty, str(pot_date), v_notes)
                 st.success("✅ تم تسجيل الزيارة بنجاح!")
+                st.rerun()
 
-# واجهات المحاسب والإدارة تبقى كما هي مع إضافة تقارير الزيارات للإدارة
+        st.divider()
+        st.subheader("📜 سجل زياراتك السابقة")
+        visits = get_visits()
+        if not visits.empty:
+            # تصفية الزيارات الخاصة بالمندوب الحالي فقط
+            my_visits = visits[visits['Salesman'] == st.session_state.user_name].copy()
+            if not my_visits.empty:
+                # عرض الجدول ببيانات واضحة
+                st.dataframe(
+                    my_visits[['Date', 'Customer Name', 'Visit Type', 'Potential Qty', 'Potential Date', 'Notes']],
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("لم تقم بتسجيل أي زيارات بعد.")
+        else:
+            st.info("سجل الزيارات فارغ حالياً.")
+
+# واجهات المحاسب والإدارة تبقى كما هي
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
     orders = get_orders()
     pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
-    for _, row in pending.iterrows():
-        with st.container(border=True):
-            st.write(f"**طلب #{row['Order ID']}** - العميل: {row['Customer Name']} - المبلغ: {row['Total Amount']} ريال")
-            pdf_file = st.file_uploader("ارفع الفاتورة", type=['pdf'], key=f"f_{row['Order ID']}")
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                if pdf_file and st.button("✅ اعتماد ورفع", key=f"b_{row['Order ID']}", use_container_width=True):
-                    url = upload_to_github(pdf_file.getvalue(), f"inv_{row['Order ID']}.pdf")
-                    if url: update_order_status(row['Order ID'], 'Invoiced', url); st.rerun()
-            with col2:
-                if st.button("🗑️", key=f"da_{row['Order ID']}", use_container_width=True):
-                    delete_order(row['Order ID']); st.rerun()
+    if not pending.empty:
+        for _, row in pending.iterrows():
+            with st.container(border=True):
+                st.write(f"**طلب #{row['Order ID']}** - العميل: {row['Customer Name']} - المبلغ: {row['Total Amount']} ريال")
+                pdf_file = st.file_uploader("ارفع الفاتورة", type=['pdf'], key=f"f_{row['Order ID']}")
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    if pdf_file and st.button("✅ اعتماد ورفع", key=f"b_{row['Order ID']}", use_container_width=True):
+                        url = upload_to_github(pdf_file.getvalue(), f"inv_{row['Order ID']}.pdf")
+                        if url: update_order_status(row['Order ID'], 'Invoiced', url); st.rerun()
+                with col2:
+                    if st.button("🗑️", key=f"da_{row['Order ID']}", use_container_width=True):
+                        delete_order(row['Order ID']); st.rerun()
+    else: st.info("📭 لا توجد طلبات معلقة")
 
 elif page == "واجهة الإدارة":
     st.header("📊 لوحة التحكم والمراقبة")
@@ -125,7 +162,7 @@ elif page == "واجهة الإدارة":
             invoiced = orders[orders['Status'] == 'Invoiced']
             st.metric("💰 إجمالي المبيعات المفوترة", f"{invoiced['Total Amount'].sum()} ريال")
             st.dataframe(orders, use_container_width=True)
-        else: st.info("لا توجد بيانات")
+        else: st.info("لا توجد بيانات مبيعات")
 
     with tab_p:
         st.subheader("🔮 توقعات الطلب القادم")
@@ -136,10 +173,11 @@ elif page == "واجهة الإدارة":
                 fig = px.bar(pot_orders, x='Potential Date', y='Potential Qty', color='Customer Name', title="الجدول الزمني للإنتاج")
                 st.plotly_chart(fig, use_container_width=True)
                 st.table(pot_orders[['Customer Name', 'Potential Qty', 'Potential Date', 'Salesman']])
-            else: st.info("لا توجد طلبات محتملة")
+            else: st.info("لا توجد طلبات محتملة مسجلة")
+        else: st.info("سجل الزيارات فارغ")
 
     with tab_v:
         st.subheader("📍 سجل نشاط المناديب")
         if not visits.empty:
             st.dataframe(visits, use_container_width=True)
-        else: st.info("لا توجد زيارات")
+        else: st.info("لا توجد زيارات مسجلة")
