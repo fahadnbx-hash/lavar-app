@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from database_gsheets import init_db, get_orders, add_order, update_order_status, get_stock, update_stock_quantity
+from database import init_db, get_orders, add_order, update_order_status, get_stock, update_stock_quantity
 from datetime import datetime, timedelta
 import urllib.parse
 import os
