@@ -12,7 +12,7 @@ init_db()
 # الثوابت التشغيلية
 UNIT_COST, LEAD_TIME_DAYS, UNITS_PER_CARTON = 5.0, 9, 6
 
-# 2. تحسينات الواجهة (CSS) للمحاذاة والجمالية
+# 2. تحسينات الواجهة (CSS)
 st.markdown("""
     <style>
     .stApp { text-align: right; direction: rtl; }
@@ -25,11 +25,10 @@ st.markdown("""
     .stButton button { width: 100%; }
     th { text-align: right !important; background-color: #f1f3f4; }
     .main-title { color: #2E7D32; text-align: center; margin-bottom: 20px; }
-    .fixed-header { background-color: #f8f9fa; padding: 10px; border-radius: 5px; font-weight: bold; border: 1px solid #ddd; margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. نظام استمرارية تسجيل الدخول (Session State)
+# 3. نظام استمرارية تسجيل الدخول
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
@@ -65,7 +64,7 @@ with st.sidebar:
         st.session_state.logged_in = False
         st.rerun()
 
-# جلب البيانات من قاعدة البيانات
+# جلب البيانات
 orders, visits, stock_df = get_orders(), get_visits(), get_stock()
 current_stock = stock_df.iloc[0]['Quantity'] if not stock_df.empty else 0
 
@@ -96,12 +95,13 @@ if page == "واجهة المندوب":
         
         st.divider()
         st.subheader("🚀 الطلبات الحالية (بانتظار الإرسال للمحاسب)")
-        st.markdown("<div class='fixed-header'><div style='display: flex; justify-content: space-between;'><span style='width: 30%;'>اسم العميل</span><span style='width: 15%;'>الكمية</span><span style='width: 15%;'>السعر</span><span style='width: 20%;'>الإجمالي</span><span style='width: 20%;'>الإجراء</span></div></div>", unsafe_allow_html=True)
-        
-        drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
-        if not drafts.empty:
-            for i, r in drafts.iterrows():
-                with st.container(border=True):
+        with st.container(border=True):
+            h1, h2, h3, h4, h5 = st.columns([3, 1.5, 1.5, 2, 2])
+            h1.write("**اسم العميل**"); h2.write("**الكمية**"); h3.write("**السعر**"); h4.write("**الإجمالي**"); h5.write("**الإجراء**")
+            st.divider()
+            drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
+            if not drafts.empty:
+                for i, r in drafts.iterrows():
                     col1, col2, col3, col4, col5 = st.columns([3, 1.5, 1.5, 2, 2])
                     col1.write(r['Customer Name'])
                     col2.write(str(r['Quantity']))
@@ -109,7 +109,7 @@ if page == "واجهة المندوب":
                     col4.write(str(r['Total Amount']))
                     if col5.button("إرسال 📤", key=f"snd_{r['Order ID']}"):
                         update_order_status(r['Order ID'], 'Pending'); st.rerun()
-        else: st.info("ℹ️ لا توجد طلبات حالياً بانتظار الإرسال.")
+            else: st.info("ℹ️ لا توجد طلبات حالياً بانتظار الإرسال.")
 
         st.divider()
         st.subheader("✅ الفواتير المعتمدة للعملاء")
@@ -154,12 +154,13 @@ if page == "واجهة المندوب":
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
     st.subheader("⏳ طلبات بانتظار إصدار الفاتورة")
-    st.markdown("<div class='fixed-header'><div style='display: flex; justify-content: space-between;'><span style='width: 30%;'>اسم العميل</span><span style='width: 15%;'>الكمية</span><span style='width: 20%;'>الإجمالي</span><span style='width: 35%;'>رفع الفاتورة والاعتماد</span></div></div>", unsafe_allow_html=True)
-    
-    pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
-    if not pending.empty:
-        for _, r in pending.iterrows():
-            with st.container(border=True):
+    with st.container(border=True):
+        h1, h2, h3, h4 = st.columns([3, 1.5, 2, 3.5])
+        h1.write("**اسم العميل**"); h2.write("**الكمية**"); h3.write("**الإجمالي**"); h4.write("**رفع الفاتورة والاعتماد**")
+        st.divider()
+        pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
+        if not pending.empty:
+            for _, r in pending.iterrows():
                 cp1, cp2, cp3, cp4 = st.columns([3, 1.5, 2, 3.5])
                 cp1.write(r['Customer Name'])
                 cp2.write(str(r['Quantity']))
@@ -171,7 +172,7 @@ elif page == "واجهة المحاسب":
                         update_stock_quantity(r['Product'], current_stock - r['Quantity'])
                         update_order_status(r['Order ID'], 'Invoiced', upload_to_github(pdf.getvalue(), f"inv_{r['Order ID']}.pdf"))
                         st.success("تم الاعتماد!"); st.rerun()
-    else: st.info("ℹ️ لا توجد طلبات معلقة حالياً.")
+        else: st.info("ℹ️ لا توجد طلبات معلقة حالياً.")
 
     st.divider()
     st.subheader("📜 سجل الفواتير المعتمدة")
@@ -263,16 +264,17 @@ elif page == "واجهة الإدارة الذكية":
 
     with t_d:
         st.subheader("📍 إدارة نشاط الميدان")
-        st.markdown("<div class='fixed-header'><div style='display: flex; justify-content: space-between;'><span style='width: 20%;'>المندوب</span><span style='width: 25%;'>العميل</span><span style='width: 20%;'>التاريخ</span><span style='width: 20%;'>الكمية</span><span style='width: 15%;'>الإجراء</span></div></div>", unsafe_allow_html=True)
-        if not visits.empty:
-            for i, r in visits.iterrows():
-                with st.container(border=True):
+        with st.container(border=True):
+            h1, h2, h3, h4, h5 = st.columns([1.5, 2, 1.5, 2, 1])
+            h1.write("**المندوب**"); h2.write("**العميل**"); h3.write("**التاريخ**"); h4.write("**الكمية**"); h5.write("**الإجراء**")
+            st.divider()
+            if not visits.empty:
+                for i, r in visits.iterrows():
                     cv1, cv2, cv3, cv4, cv5 = st.columns([1.5, 2, 1.5, 2, 1])
                     cv1.write(r['Salesman'])
                     cv2.write(r['Customer Name'])
                     cv3.write(r['Date'])
                     cv4.write(f"{int(r['Potential Qty'])} علبة")
                     if cv5.button("حذف 🗑️", key=f"adm_del_{i}"):
-                        # دالة حذف محاكاة
                         st.warning("تم الحذف بنجاح"); st.rerun()
-        else: st.info("ℹ️ السجل فارغ.")
+            else: st.info("ℹ️ السجل فارغ.")
