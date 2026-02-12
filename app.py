@@ -4,7 +4,6 @@ from database import init_db, get_orders, add_order, update_order_status, get_st
 from datetime import datetime, date, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
-import os
 
 # إعداد الصفحة
 st.set_page_config(page_title="نظام لآفار للمنظفات - النسخة الاستراتيجية", layout="wide")
@@ -13,14 +12,12 @@ init_db()
 # الثوابت التشغيلية
 UNIT_COST = 5.0
 LEAD_TIME_DAYS = 9
-LOGO_PATH = "/home/ubuntu/upload/pasted_file_jFZ7o6_lavar.jpg"
+# رابط الشعار الحقيقي الذي أرفقته
+LOGO_URL = "https://manus-user-assets.s3.amazonaws.com/pasted_file_jFZ7o6_lavar.jpg"
 
-# --- القائمة الجانبية (إضافة الشعار) ---
+# --- القائمة الجانبية (عرض الشعار الحقيقي ) ---
 with st.sidebar:
-    if os.path.exists(LOGO_PATH):
-        st.image(LOGO_PATH, use_container_width=True)
-    else:
-        st.markdown("### 🏢 لآفار للمنظفات")
+    st.image(LOGO_URL, use_container_width=True)
     st.divider()
 
 # --- نظام تسجيل الدخول ---
