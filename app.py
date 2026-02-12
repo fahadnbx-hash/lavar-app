@@ -528,7 +528,9 @@ elif page == "واجهة الإدارة الذكية":
                 auto_conf = min(100, auto_conf)
                 
                 with cv5:
-                    st.slider("مؤشر الثقة", 0, 100, auto_conf, key=f"conf_{i}", disabled=False)
+                    conf_val = st.slider("مؤشر الثقة", 0, 100, auto_conf, key=f"conf_{i}")
+                    weighted_qty = r['Potential Qty'] * (conf_val / 100.0)
+                    st.caption(f"📊 {int(weighted_qty)} علبة")
                 
                 if cv6.button("حذف 🗑️", key=f"adm_del_{i}"):
                     delete_visit(i)
