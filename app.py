@@ -231,7 +231,7 @@ elif page == "واجهة الإدارة الذكية":
             
             conf_key = f"conf_{idx}"
             if conf_key in st.session_state:
-                confidence = st.session_state[conf_key] / 100.0
+                individual_conf = st.session_state[conf_key]
             else:
                 auto_conf = 60
                 if visit['Potential Qty'] > 500:
@@ -239,7 +239,11 @@ elif page == "واجهة الإدارة الذكية":
                 days_diff = (potential_date - pd.to_datetime(visit['Date'])).days
                 if days_diff < 10:
                     auto_conf += 15
-                confidence = min(100, auto_conf) / 100.0
+                individual_conf = min(100, auto_conf)
+            
+            # تطبيق ضابط الإيقاع العام
+            master_conf = st.session_state.get('master_confidence', 100) / 100.0
+            confidence = (individual_conf / 100.0) * master_conf
             
             weighted_qty = visit['Potential Qty'] * confidence
             
@@ -284,7 +288,28 @@ elif page == "واجهة الإدارة الذكية":
         st.session_state.confidence_level = 70
     
     # حساب الطلب المرجح (الكمية المتوقعة × مؤشر الثقة)
-    weighted_demand = potential_qty * (st.session_state.confidence_level / 100.0)
+    # حساب الطلب المرجح بناءً على المؤشرات الفردية مع ضابط الإيقاع العام
+    if not visits.empty:
+        weighted_demand = 0
+        for idx, visit in visits.iterrows():
+            conf_key = f"conf_{idx}"
+            if conf_key in st.session_state:
+                individual_conf = st.session_state[conf_key]
+            else:
+                auto_conf = 60
+                if visit['Potential Qty'] > 500:
+                    auto_conf += 10
+                days_diff = (pd.to_datetime(visit['Potential Date']) - pd.to_datetime(visit['Date'])).days
+                if days_diff < 10:
+                    auto_conf += 15
+                individual_conf = min(100, auto_conf)
+            
+            # تطبيق ضابط الإيقاع العام
+            master_conf = st.session_state.get('master_confidence', 100) / 100.0
+            final_conf = (individual_conf / 100.0) * master_conf
+            weighted_demand += visit['Potential Qty'] * final_conf
+    else:
+        weighted_demand = 0
     
     # حساب توصية الإنتاج
     safety_stock = 500
@@ -331,18 +356,30 @@ elif page == "واجهة الإدارة الذكية":
     st.divider()
     
     # ===== مؤشر الثقة الذكي للمدير =====
-    st.markdown("### 🎯 مؤشر الثقة الذكي (Smart Confidence Slider)")
+    st.markdown("### 🎯 مؤشر الثقة الذكي (Smart Confidence Slider) - ضابط الإيقاع العام")
     with st.container(border=True):
         col_conf1, col_conf2 = st.columns([3, 1])
         with col_conf1:
-            st.session_state.confidence_level = st.slider(
-                "اضبط مؤشر الثقة في توقعات الطلب (يؤثر على توصيات الإنتاج والتمويل)",
-                0, 100, st.session_state.confidence_level, 5
+            master_confidence = st.slider(
+                "ضابط الإيقاع العام: اضبط هنا لتطبيق تأثير عام على جميع المؤشرات الفردية في الجدول أدناه",
+                0, 100, 100, 5, key="master_confidence_slider"
             )
+            st.session_state.master_confidence = master_confidence
         with col_conf2:
-            st.metric("مؤشر الثقة", f"{st.session_state.confidence_level}%")
+            st.metric("مؤشر الإيقاع", f"{master_confidence}%")
     
-    st.info(f"💡 **التأثير الحالي:** الطلب المرجح = {int(potential_qty)} × {st.session_state.confidence_level}% = **{int(weighted_demand)} علبة**")
+    # حساب متوسط الثقة من المؤشرات الفردية
+    if not visits.empty:
+        individual_confidences = []
+        for idx in visits.index:
+            conf_key = f"conf_{idx}"
+            if conf_key in st.session_state:
+                individual_confidences.append(st.session_state[conf_key])
+        avg_confidence = sum(individual_confidences) / len(individual_confidences) if individual_confidences else 100
+    else:
+        avg_confidence = 100
+    
+    st.info(f"💡 **متوسط الثقة من الميدان:** {avg_confidence:.0f}% | **ضابط الإيقاع:** {master_confidence}% | **الثقة المطبقة:** {(avg_confidence * master_confidence / 100):.0f}%")
     
     st.divider()
     
