@@ -54,7 +54,6 @@ if not st.session_state.logged_in:
         user = st.text_input("اسم المستخدم")
         password = st.text_input("كلمة المرور", type="password")
         if st.button("دخول للنظام", use_container_width=True):
-            # تم تحديث جميع كلمات المرور إلى 1234 بناءً على طلب المستخدم
             if (user == "admin" and password == "1234") or \
                (user == "acc" and password == "1234") or \
                (user == "sales" and password == "1234"):
