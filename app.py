@@ -67,6 +67,8 @@ with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🏢 لآفار للمنظفات</h2>", unsafe_allow_html=True)
     st.divider()
     st.markdown(f"### 👤 مرحباً: {st.session_state.user_name}")
+    
+    # إصلاح الصلاحيات: عرض الصفحات بناءً على دور المستخدم
     if st.session_state.role == "admin":
         pages = ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"]
     elif st.session_state.role == "sales":
@@ -74,13 +76,13 @@ with st.sidebar:
     elif st.session_state.role == "acc":
         pages = ["واجهة المحاسب"]
     else:
-        pages = [] # Should not happen if roles are well-defined
+        pages = []
 
     if pages:
-        page = st.sidebar.radio("📌 الانتقال إلى:", pages, index=0)
+        page = st.sidebar.radio("📌 الانتقال إلى:", pages)
     else:
         st.error("لا توجد صفحات متاحة لدورك.")
-        st.stop() # Stop execution if no pages are available for the role
+        st.stop()
 
     st.divider()
     if st.sidebar.button("🚪 تسجيل الخروج", use_container_width=True):
