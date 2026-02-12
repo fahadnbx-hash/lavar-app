@@ -17,7 +17,8 @@ UNIT_COST, LEAD_TIME_DAYS, UNITS_PER_CARTON = 5.0, 9, 6
 st.markdown("""
     <style>
     * { box-sizing: border-box; }
-    .stApp { text-align: right; direction: rtl; overflow-x: hidden; }
+    html, body, [data-testid="stAppViewContainer"] { overflow-x: hidden; }
+    .stApp { text-align: right; direction: rtl; overflow-x: hidden; padding: 1rem; }
     .stMetric { text-align: right; }
     .stMetric label { font-size: 0.75rem !important; color: #666; }
     .stMetric div { font-size: 1.1rem !important; font-weight: bold; }
@@ -28,23 +29,37 @@ st.markdown("""
     th { text-align: right !important; background-color: #f1f3f4; white-space: nowrap; }
     td { text-align: right !important; white-space: nowrap; }
     .main-title { color: #2E7D32; text-align: center; margin-bottom: 20px; }
-    [data-testid="stSidebar"] { left: 0 !important; right: auto !important; width: 250px !important; }
-    [data-testid="stSidebar"] * { text-align: right !important; direction: rtl !important; word-wrap: break-word; }
+    [data-testid="stSidebar"] { left: 0 !important; right: auto !important; width: 250px !important; transition: width 0.3s ease-in-out; }
+    [data-testid="stSidebar"] * { text-align: right !important; direction: rtl !important; word-wrap: break-word; overflow-wrap: break-word; flex-shrink: 0; }
     .recommendation-box { border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #f9f9f9; margin-bottom: 10px; }
     .alert-red { background-color: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; border-radius: 4px; }
     .alert-green { background-color: #e8f5e9; border-left: 4px solid #388e3c; padding: 10px; border-radius: 4px; }
     .alert-yellow { background-color: #fff3e0; border-left: 4px solid #f57c00; padding: 10px; border-radius: 4px; }
-    .metric-card { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 8px; padding: 12px 8px; margin: 5px 0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); border: 1px solid rgba(255, 255, 255, 0.5); text-align: center; word-wrap: break-word; }
+    .metric-card { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 8px; padding: 12px 8px; margin: 5px 0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); border: 1px solid rgba(255, 255, 255, 0.5); text-align: center; word-wrap: break-word; overflow-wrap: break-word; }
     .metric-card-actual { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
     .metric-card-predicted { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
-    .metric-value { font-size: 1.6rem !important; font-weight: 800 !important; margin: 5px 0; letter-spacing: 0.5px; word-wrap: break-word; }
-    .metric-label { font-size: 0.75rem !important; font-weight: 600 !important; opacity: 0.9; margin-bottom: 2px; word-wrap: break-word; }
+    .metric-value { font-size: 1.6rem !important; font-weight: 800 !important; margin: 5px 0; letter-spacing: 0.5px; word-wrap: break-word; overflow-wrap: break-word; }
+    .metric-label { font-size: 0.75rem !important; font-weight: 600 !important; opacity: 0.9; margin-bottom: 2px; word-wrap: break-word; overflow-wrap: break-word; }
     .metric-icon { font-size: 1.8rem; margin-bottom: 4px; }
-    .row-header { font-size: 1.1rem; font-weight: 700; color: #2E7D32; margin: 15px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #2E7D32; word-wrap: break-word; }
+    .row-header { font-size: 1.1rem; font-weight: 700; color: #2E7D32; margin: 15px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #2E7D32; word-wrap: break-word; overflow-wrap: break-word; }
+    
     @media (max-width: 768px) {
-        [data-testid="stSidebar"] { width: 200px !important; }
-        .metric-value { font-size: 1.2rem !important; }
-        .stApp { padding: 0 !important; }
+        [data-testid="stSidebar"] { width: 180px !important; min-width: 180px !important; }
+        [data-testid="stSidebar"] > div { width: 180px !important; min-width: 180px !important; }
+        .stApp { padding: 0.5rem !important; }
+        .metric-value { font-size: 1.1rem !important; }
+        .metric-label { font-size: 0.65rem !important; }
+        th, td { font-size: 0.8rem; }
+        .main-title { font-size: 1.5rem; }
+    }
+    @media (max-width: 480px) {
+        [data-testid="stSidebar"] { width: 150px !important; min-width: 150px !important; }
+        [data-testid="stSidebar"] > div { width: 150px !important; min-width: 150px !important; }
+        .stApp { padding: 0.2rem !important; }
+        .metric-value { font-size: 1rem !important; }
+        .metric-label { font-size: 0.6rem !important; }
+        th, td { font-size: 0.7rem; }
+        .main-title { font-size: 1.2rem; }
     }
     </style>
 """, unsafe_allow_html=True)
