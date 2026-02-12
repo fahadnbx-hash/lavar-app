@@ -74,7 +74,7 @@ current_stock = stock_df.iloc[0]['Quantity'] if not stock_df.empty else 0
 # --- واجهة المندوب ---
 if page == "واجهة المندوب":
     st.header("📋 واجهة المندوب")
-    t1, t2, t3 = st.tabs(["🛒 إدارة الطلبات", "📍 سجل الزيارات الميدانية", "🧮 حاسبة الكراتين"])
+    t1, t2 = st.tabs(["🛒 إدارة الطلبات", "📍 سجل الزيارات الميدانية"])
     
     with t1:
         st.subheader("➕ إنشاء طلب جديد")
@@ -136,14 +136,11 @@ if page == "واجهة المندوب":
         st.subheader("📍 تسجيل زيارة ميدانية")
         with st.form("v_form"):
             c1, c2 = st.columns(2)
-            with c1:
-                v_cust = st.text_input("اسم العميل المزار")
-                v_type = st.selectbox("نوع الزيارة", ["دورية", "عميل جديد", "تحصيل", "شكوى"])
-            with c2:
-                p_qty = st.number_input("الكمية المتوقعة (علبة)", min_value=0, value=0)
-                p_date = st.date_input("التاريخ المتوقع للطلب", value=date.today() + timedelta(days=7))
+            v_cust = st.text_input("اسم العميل المزار")
+            p_qty = st.number_input("الكمية المتوقعة (علبة)", min_value=0, value=0)
+            p_date = st.date_input("التاريخ المتوقع للطلب", value=date.today() + timedelta(days=7))
             if st.form_submit_button("💾 حفظ الزيارة الميدانية", use_container_width=True):
-                add_visit(st.session_state.user_name, v_cust, v_type, p_qty, str(p_date), "")
+                add_visit(st.session_state.user_name, v_cust, p_qty, str(p_date), "")
                 st.success("✅ تم تسجيل الزيارة بنجاح!"); st.rerun()
         
         st.divider()
@@ -153,16 +150,7 @@ if page == "واجهة المندوب":
             st.dataframe(my_visits, use_container_width=True, hide_index=True)
         else: st.info("ℹ️ لم يتم تسجيل أي زيارات بعد.")
 
-    with t3:
-        st.subheader("🧮 حاسبة التحويل السريع")
-        with st.container(border=True):
-            cc1, cc2 = st.columns(2)
-            with cc1:
-                c_in = st.number_input("عدد الكراتين", min_value=0, value=0, key="c_in")
-                st.info(f"💡 تعادل: **{int(c_in * UNITS_PER_CARTON)}** علبة")
-            with cc2:
-                u_in = st.number_input("عدد العلب", min_value=0, value=0, key="u_in")
-                st.info(f"💡 تعادل: **{u_in / UNITS_PER_CARTON:.2f}** كرتون")
+
 
 # --- واجهة المحاسب ---
 elif page == "واجهة المحاسب":
@@ -411,9 +399,7 @@ elif page == "واجهة الإدارة الذكية":
                 cv4.write(f"{int(r['Potential Qty'])} علبة")
                 
                 # حساب مؤشر الثقة الذكي تلقائياً بناءً على عوامل مختلفة
-                auto_conf = 50  # قاعدة أساسية
-                if r['Visit Type'] == "عميل جديد":
-                    auto_conf += 20
+                auto_conf = 60  # قاعدة أساسية معدلة
                 if r['Potential Qty'] > 500:
                     auto_conf += 10
                 days_diff = (pd.to_datetime(r['Potential Date']) - pd.to_datetime(r['Date'])).days
