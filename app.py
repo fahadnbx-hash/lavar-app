@@ -4,6 +4,7 @@ from database import init_db, get_orders, add_order, update_order_status, get_st
 from datetime import datetime, date, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
+import os
 
 # إعداد الصفحة
 st.set_page_config(page_title="نظام لآفار للمنظفات - النسخة الاستراتيجية", layout="wide")
@@ -12,6 +13,15 @@ init_db()
 # الثوابت التشغيلية
 UNIT_COST = 5.0
 LEAD_TIME_DAYS = 9
+LOGO_PATH = "/home/ubuntu/upload/pasted_file_jFZ7o6_lavar.jpg"
+
+# --- القائمة الجانبية (إضافة الشعار) ---
+with st.sidebar:
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, use_container_width=True)
+    else:
+        st.markdown("### 🏢 لآفار للمنظفات")
+    st.divider()
 
 # --- نظام تسجيل الدخول ---
 if 'logged_in' not in st.session_state:
@@ -34,7 +44,7 @@ if not st.session_state.logged_in:
         else: st.error("بيانات الدخول غير صحيحة")
     st.stop()
 
-# القائمة الجانبية
+# معلومات المستخدم في القائمة الجانبية
 st.sidebar.markdown(f"### 👤 {st.session_state.user_name}")
 if st.sidebar.button("🚪 تسجيل الخروج", use_container_width=True):
     st.session_state.logged_in = False
@@ -146,7 +156,7 @@ elif page == "واجهة المحاسب":
 elif page == "واجهة الإدارة الذكية":
     st.header("📊 مركز القيادة والتحكم الاستراتيجي")
     
-    # 1. ملخصات رقمية (تحسين بصري)
+    # 1. ملخصات رقمية
     st.markdown("### 📈 ملخص الأداء العام")
     invoiced_orders = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
     total_sales_val = invoiced_orders['Total Amount'].sum() if not invoiced_orders.empty else 0
@@ -226,12 +236,9 @@ elif page == "واجهة الإدارة الذكية":
             if total_needed_now > 0:
                 st.info(f"💡 **التوصية النهائية:** يجب إنتاج إجمالي **{int(total_needed_now)}** علبة، والبدء في تاريخ **{earliest_date}**.")
 
-                # التحليل المالي للإنتاج (المتطلب الجديد)
                 st.markdown("#### 💰 تحليل تغطية تكلفة الإنتاج من التدفقات النقدية")
                 if earliest_date != "لا يوجد":
                     production_cost = total_needed_now * UNIT_COST
-                    
-                    # جمع الفواتير المستحقة قبل أو خلال تاريخ بدء الإنتاج
                     relevant_invoices = invoiced_orders[pd.to_datetime(invoiced_orders['Due Date']) <= pd.to_datetime(earliest_date)]
                     expected_cash_flow = relevant_invoices['Total Amount'].sum() if not relevant_invoices.empty else 0
 
@@ -246,9 +253,6 @@ elif page == "واجهة الإدارة الذكية":
                         coverage_percentage = (expected_cash_flow / production_cost) * 100 if production_cost > 0 else 0
                         st.warning(f"⚠️ **عجز في التمويل:** التدفق النقدي يغطي {coverage_percentage:.0f}% من تكلفة الإنتاج.")
                         st.error(f"**تحتاج لتوفير:** {shortfall:,.0f} ريال إضافية لتغطية تكلفة الإنتاج الموصى بها.")
-                else:
-                    st.info("لا توجد توصية إنتاج حالياً لحساب التحليل المالي.")
-
             else:
                 st.success("💡 **التوصية النهائية:** المخزون الحالي كافٍ، لا حاجة لإنتاج جديد حالياً.")
         else: st.info("لا توجد بيانات لبناء الجدول")
