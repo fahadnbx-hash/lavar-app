@@ -53,8 +53,7 @@ if not st.session_state.logged_in:
         st.subheader("🔐 تسجيل الدخول")
         user = st.text_input("اسم المستخدم")
         password = st.text_input("كلمة المرور", type="password")
-        if st.button("دخول للنظام", use_container_width=True):
-            if (user == "admin" and password == "1234") or \
+        if st.button("دخول للنظام", use_container_width=True            if (user == "admin" and password == "1234") or \
                (user == "acc" and password == "1234") or \
                (user == "sales" and password == "1234"):
                 st.session_state.logged_in, st.session_state.role, st.session_state.user_name = True, user, "المستخدم"
@@ -67,23 +66,8 @@ with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🏢 لآفار للمنظفات</h2>", unsafe_allow_html=True)
     st.divider()
     st.markdown(f"### 👤 مرحباً: {st.session_state.user_name}")
-    
-    # إصلاح الصلاحيات: عرض الصفحات بناءً على دور المستخدم
-    if st.session_state.role == "admin":
-        pages = ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"]
-    elif st.session_state.role == "sales":
-        pages = ["واجهة المندوب"]
-    elif st.session_state.role == "acc":
-        pages = ["واجهة المحاسب"]
-    else:
-        pages = []
-
-    if pages:
-        page = st.sidebar.radio("📌 الانتقال إلى:", pages)
-    else:
-        st.error("لا توجد صفحات متاحة لدورك.")
-        st.stop()
-
+    pages = ["واجهة المندوب"] if st.session_state.role == "sales" else ["واجهة المحاسب"] if st.session_state.role ==    pages = ["واجهة المندوب"] if st.session_state.role == "sales" else ["واجهة المحاسب"] if st.session_state.role == "acc" else ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"]
+    page = st.sidebar.radio("📌 الانتقال إلى:", pages)
     st.divider()
     if st.sidebar.button("🚪 تسجيل الخروج", use_container_width=True):
         st.session_state.logged_in = False
@@ -172,6 +156,8 @@ if page == "واجهة المندوب":
             st.dataframe(my_visits, use_container_width=True, hide_index=True)
         else: st.info("ℹ️ لم يتم تسجيل أي زيارات بعد.")
 
+
+
 # --- واجهة المحاسب ---
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
@@ -203,6 +189,13 @@ elif page == "واجهة المحاسب":
     invoiced_all = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
     if not invoiced_all.empty:
         st.dataframe(invoiced_all, use_container_width=True, hide_index=True)
+        try:
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                invoiced_all.to_excel(writer, index=False, sheet_name='الفواتير')
+            st.download_button(label="📥 تحميل كشف الفواتير", data=output.getvalue(), file_name="invoices.xlsx")
+        except Exception as e:
+            st.error(f"حدث خطأ أثناء إنشاء ملف الإكسل: {e}")
 
 # --- واجهة الإدارة الذكية ---
 elif page == "واجهة الإدارة الذكية":
@@ -210,6 +203,50 @@ elif page == "واجهة الإدارة الذكية":
     
     # جلب فواتير معتمدة للإحصائيات
     invoiced_adm = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
+    
+    # ===== مؤشر الثقة الرئيسي =====
+    st.markdown("### ⚖️ مؤشر الثقة الرئيسي")
+    with st.container(border=True):
+        current_master_confidence = get_master_confidence()
+        master_confidence = st.slider("حدد مؤشر الثقة الرئيسي (يؤثر على جميع التوقعات)", 0, 100, current_master_confidence, key="master_confidence_slider")
+        if master_confidence != current_master_confidence:
+            update_master_confidence(master_confidence)
+        st.caption(f"يتم استخدام هذا المؤشر لتعديل دقة التوقعات بناءً على رؤيتك للسوق.")
+    
+    st.divider()
+    
+    # ===== نظام التنبؤ الذكي =====
+    st.markdown("### 🔮 نظام التنبؤ الذكي")
+    with st.container(border=True):
+        if not invoiced_adm.empty and not visits.empty:
+            # تحويل التواريخ
+            invoiced_adm['Order Date'] = pd.to_datetime(invoiced_adm['Order Date'])
+            visits['Date'] = pd.to_datetime(visits['Date'])
+            visits['Potential Date'] = pd.to_datetime(visits['Potential Date'])
+
+            # حساب المتوسطات
+            avg_monthly_sales = invoiced_adm.set_index('Order Date').resample('M')['Quantity'].sum().mean()
+            sales_this_month = invoiced_adm[invoiced_adm['Order Date'].dt.month == datetime.now().month]['Quantity'].sum()
+            
+            # توقعات الزيارات الميدانية
+            future_visits = visits[visits['Potential Date'] > datetime.now()]
+            potential_sales_from_visits = (future_visits['Potential Qty'] * (future_visits['Confidence'] / 100.0)).sum()
+            
+            # التوقع النهائي مع مؤشر الثقة
+            predicted_next_month_sales = (avg_monthly_sales * 0.5) + (potential_sales_from_visits * 0.5)
+            final_prediction = predicted_next_month_sales * (master_confidence / 100.0)
+
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.markdown("<div class='metric-card'><div class='metric-label'>📈 متوسط المبيعات الشهري</div><div class='metric-value'>{:.0f}</div></div>".format(avg_monthly_sales), unsafe_allow_html=True)
+            with c2:
+                st.markdown("<div class='metric-card metric-card-actual'><div class='metric-label'>💰 مبيعات الشهر الحالي</div><div class='metric-value'>{:.0f}</div></div>".format(sales_this_month), unsafe_allow_html=True)
+            with c3:
+                st.markdown("<div class='metric-card metric-card-predicted'><div class='metric-label'>🔮 توقعات الشهر القادم</div><div class='metric-value'>{:.0f}</div></div>".format(final_prediction), unsafe_allow_html=True)
+        else:
+            st.info("ℹ️ لا توجد بيانات كافية للتنبؤ. يرجى التأكد من وجود فواتير وزيارات مسجلة.")
+
+    st.divider()
     
     # ===== نظام تحقيق المستهدف السنوي =====
     st.markdown("### 🎯 نظام تحقيق المستهدف السنوي")
@@ -268,24 +305,34 @@ elif page == "واجهة الإدارة الذكية":
                 cv3.write(r['Date'])
                 cv4.write(f"{int(r['Potential Qty'])} علبة")
                 
-                # حساب مؤشر الثقة الذكي تلقائياً
-                auto_conf = 60
-                if r['Potential Qty'] > 500: auto_conf += 10
+                # حساب مؤشر الثقة الذكي تلقائياً بناءً على عوامل مختلفة
+                auto_conf = 60  # قاعدة أساسية معدلة
+                if r['Potential Qty'] > 500:
+                    auto_conf += 10
                 days_diff = (pd.to_datetime(r['Potential Date']) - pd.to_datetime(r['Date'])).days
-                if days_diff < 10: auto_conf += 15
+                if days_diff < 10:
+                    auto_conf += 15
                 auto_conf = min(100, auto_conf)
                 
                 with cv5:
+                    # قراءة قيمة الثقة من قاعدة البيانات إن وجدت
                     saved_conf = get_visit_confidence(i)
                     default_conf = saved_conf if saved_conf is not None else auto_conf
+                    
                     conf_val = st.slider("مؤشر الثقة", 0, 100, default_conf, key=f"conf_{i}")
-                    if conf_val != default_conf: update_visit_confidence(i, conf_val)
+                    
+                    # حفظ قيمة الثقة في قاعدة البيانات عند التغيير
+                    if conf_val != default_conf:
+                        update_visit_confidence(i, conf_val)
+                    
                     weighted_qty = r['Potential Qty'] * (conf_val / 100.0)
                     st.caption(f"📊 {int(weighted_qty)} علبة")
                 
                 if cv6.button("حذف 🗑️", key=f"adm_del_{i}"):
-                    delete_visit(i); st.rerun()
-        else: st.info("ℹ️ لا توجد سجلات حالياً.")
+                    delete_visit(i)
+                    st.rerun()
+        else:
+            st.info("ℹ️ لا توجد سجلات حالياً.")
 
     # ===== قسم إدارة البيانات (Admin Panel) =====
     st.markdown("---")
