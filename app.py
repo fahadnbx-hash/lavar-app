@@ -53,7 +53,8 @@ if not st.session_state.logged_in:
         st.subheader("🔐 تسجيل الدخول")
         user = st.text_input("اسم المستخدم")
         password = st.text_input("كلمة المرور", type="password")
-        if st.button("دخول للنظام", use_container_width=True            if (user == "admin" and password == "1234") or \
+        if st.button("دخول للنظام", use_container_width=True):
+            if (user == "admin" and password == "1234") or \
                (user == "acc" and password == "1234") or \
                (user == "sales" and password == "1234"):
                 st.session_state.logged_in, st.session_state.role, st.session_state.user_name = True, user, "المستخدم"
@@ -66,7 +67,7 @@ with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🏢 لآفار للمنظفات</h2>", unsafe_allow_html=True)
     st.divider()
     st.markdown(f"### 👤 مرحباً: {st.session_state.user_name}")
-    pages = ["واجهة المندوب"] if st.session_state.role == "sales" else ["واجهة المحاسب"] if st.session_state.role ==    pages = ["واجهة المندوب"] if st.session_state.role == "sales" else ["واجهة المحاسب"] if st.session_state.role == "acc" else ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"]
+    pages = ["واجهة المندوب"] if st.session_state.role == "sales" else ["واجهة المحاسب"] if st.session_state.role == "acc" else ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"]
     page = st.sidebar.radio("📌 الانتقال إلى:", pages)
     st.divider()
     if st.sidebar.button("🚪 تسجيل الخروج", use_container_width=True):
@@ -289,12 +290,7 @@ elif page == "واجهة الإدارة الذكية":
     st.markdown("### 📍 إدارة نشاط الميدان")
     with st.container(border=True):
         h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 1.5, 1.5, 2.5, 1])
-        h1.write("**المندوب**")
-        h2.write("**العميل**")
-        h3.write("**التاريخ**")
-        h4.write("**الكمية**")
-        h5.write("**مؤشر الثقة**")
-        h6.write("**الإجراء**")
+        h1.write("**المندوب**"); h2.write("**العميل**"); h3.write("**التاريخ**"); h4.write("**الكمية**"); h5.write("**مؤشر الثقة**"); h6.write("**الإجراء**")
         st.divider()
         
         if not visits.empty:
