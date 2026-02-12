@@ -64,6 +64,7 @@ def add_visit(salesman, customer, pot_qty, pot_date, notes):
 
 def delete_visit(index):
     if index in st.session_state.visits_df.index:
+        st.session_state.visits_df = st.session_state.visits_df.drop(index)
 
 def get_master_confidence():
     """الحصول على ضابط الإيقاع العام"""
@@ -97,6 +98,5 @@ def get_visit_confidence(visit_index):
         return int(conf)
     return None
 
-        st.session_state.visits_df = st.session_state.visits_df.drop(index).reset_index(drop=True)
 
 def upload_to_github(content, filename): return f"https://raw.githubusercontent.com/mock/inv/{filename}"
