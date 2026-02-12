@@ -13,35 +13,16 @@ init_db()
 # الثوابت التشغيلية
 UNIT_COST, LEAD_TIME_DAYS, UNITS_PER_CARTON = 5.0, 9, 6
 
-# 2. تحسينات الواجهة (CSS) للمحاذاة والجمالية
+# 2. تحسينات الواجهة (CSS)
 st.markdown("""
     <style>
-    /* جعل الصفحة الأساسية بمحاذاة اليمين */
     .stApp { text-align: right; direction: rtl; }
-    
-    /* جعل السايد بار في جهة اليسار */
-    section[data-testid="stSidebar"] {
-        left: 0 !important;
-        right: auto !important;
-        text-align: right !important;
-        direction: rtl !important;
-    }
-    
-    /* ضبط محاذاة المحتوى الرئيسي ليتناسب مع السايد بار الأيسر */
-    section.main {
-        margin-left: 0 !important;
-    }
-
+    section[data-testid="stSidebar"] { left: 0 !important; right: auto !important; text-align: right !important; direction: rtl !important; }
+    section.main { margin-left: 0 !important; }
     .stMetric { text-align: right; }
     .stMetric label { font-size: 0.75rem !important; color: #666; }
     .stMetric div { font-size: 1.1rem !important; font-weight: bold; }
-    div[data-testid="stExpander"] { text-align: right; }
-    .stTable { direction: rtl; border: 1px solid #eee; }
-    .stDataFrame { direction: rtl; }
-    .stButton button { width: 100%; }
-    th { text-align: right !important; background-color: #f1f3f4; }
     .main-title { color: #2E7D32; text-align: center; margin-bottom: 20px; }
-    .recommendation-box { border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #f9f9f9; margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -64,7 +45,7 @@ if not st.session_state.logged_in:
             else: st.error("❌ بيانات الدخول غير صحيحة")
     st.stop()
 
-# 4. القائمة الجانبية (ستظهر في اليسار)
+# 4. القائمة الجانبية (يسار)
 with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🏢 لآفار للمنظفات</h2>", unsafe_allow_html=True)
     st.divider()
@@ -151,6 +132,7 @@ if page == "واجهة المندوب":
             with c2:
                 p_qty = st.number_input("الكمية المتوقعة (علبة)", min_value=0, value=0)
                 p_date = st.date_input("التاريخ المتوقع للطلب", value=date.today() + timedelta(days=7))
+            
             if st.form_submit_button("💾 حفظ الزيارة الميدانية", use_container_width=True):
                 add_visit(st.session_state.user_name, v_cust, v_type, p_qty, str(p_date), "")
                 st.success("✅ تم تسجيل الزيارة بنجاح!"); st.rerun()
@@ -204,15 +186,11 @@ elif page == "واجهة المحاسب":
     invoiced_all = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
     if not invoiced_all.empty:
         st.dataframe(invoiced_all, use_container_width=True, hide_index=True)
-        try:
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                invoiced_all.to_excel(writer, index=False)
-            st.download_button("📥 تحميل السجل كملف Excel", output.getvalue(), "invoices.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        except: st.warning("⚠️ ميزة تصدير الإكسل قيد التحديث.")
     else: st.info("ℹ️ لا توجد فواتير معتمدة.")
 
-    st.markdown("  ", unsafe_allow_html=True)
+    st.markdown("  
+  
+", unsafe_allow_html=True)
     st.columns([5, 1])[1].link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="primary" )
 
 # --- واجهة الإدارة ---
@@ -224,29 +202,15 @@ elif page == "واجهة الإدارة الذكية":
     potential_qty = visits['Potential Qty'].sum() if not visits.empty else 0
     
     st.markdown("### 📈 ملخص الأداء العام")
-    st.markdown("##### **الأرقام الفعلية**")
     f1, f2, f3, f4 = st.columns(4)
     f1.metric("📦 المخزون", f"{int(current_stock)} علبة")
     f2.metric("💰 المبيعات", f"{sales_total:,.0f} ريال")
-    f3.metric("📄 الفواتير", len(invoiced_adm))
-    f4.metric("🚚 الكمية المباعة", f"{int(invoiced_adm['Quantity'].sum()) if not invoiced_adm.empty else 0}")
+    f3.metric("🔮 طلبات متوقعة", f"{int(potential_qty)} علبة")
+    f4.metric("🏭 تكلفة الإنتاج", f"{potential_qty * UNIT_COST:,.0f} ريال")
 
-    st.markdown("##### **الأرقام المتوقعة**")
-    e1, e2, e3, e4 = st.columns(4)
-    e1.metric("🔮 طلبات متوقعة", f"{int(potential_qty)} علبة")
-    e2.metric("💵 قيمة متوقعة", f"{potential_qty * 11.0:,.0f} ريال")
-    e3.metric("🏭 تكلفة الإنتاج", f"{potential_qty * UNIT_COST:,.0f} ريال")
-    e4.metric("📍 زيارات الميدان", len(visits))
-
-    t_a, t_b, t_c, t_d = st.tabs(["🧠 التخطيط والتوصيات", "💰 السيولة والمبيعات", "📦 إدارة المخزون", "📍 نشاط الميدان"])
+    t_a, t_b, t_c, t_d = st.tabs(["🧠 التخطيط", "💰 السيولة", "📦 المخزون", "📍 نشاط الميدان"])
     
     with t_a:
-        st.subheader("📋 التوصيات الإدارية")
-        with st.container(border=True):
-            if current_stock < 1000: st.warning("⚠️ تنبيه: المخزون تحت حد الأمان (1000 علبة).")
-            elif potential_qty > current_stock: st.error("⚠️ تنبيه: الطلب المتوقع أكبر من المخزون المتوفر.")
-            else: st.success("✅ وضع المخزون والطلب مستقر حالياً.")
-
         st.subheader("📅 تكلفة الإنتاج الأسبوعية المتوقعة")
         if not visits.empty:
             v_plot = visits.copy()
@@ -255,56 +219,20 @@ elif page == "واجهة الإدارة الذكية":
             w_data = v_plot.groupby('Week')['Potential Qty'].sum().reset_index()
             w_data['Cost'] = w_data['Potential Qty'] * UNIT_COST
             w_data['Date_Str'] = w_data['Week'].dt.strftime('%Y-%m-%d')
-            st.plotly_chart(px.bar(w_data, x='Date_Str', y='Cost', title="تكلفة الإنتاج حسب الأسبوع", labels={'Date_Str': 'تاريخ بداية الأسبوع', 'Cost': 'التكلفة (ريال)'}), use_container_width=True)
-        else: st.info("📊 سيظهر الرسم البياني هنا عند توفر بيانات.")
-
-        st.subheader("🗓️ جدول الإنتاج المقترح")
-        if not visits.empty:
-            v_plot = visits.copy()
-            v_plot['Date'] = pd.to_datetime(v_plot['Date'])
-            v_plot['Month'] = v_plot['Date'].dt.to_period('M').astype(str)
-            m_data = v_plot.groupby('Month')['Potential Qty'].sum().reset_index()
-            m_data['Production'] = m_data['Potential Qty'].apply(lambda x: int(max(0, x - current_stock)))
-            st.table(m_data.rename(columns={'Month': 'الشهر', 'Potential Qty': 'الطلب المتوقع', 'Production': 'الإنتاج المطلوب'}))
-        else: st.info("ℹ️ لا توجد بيانات إنتاج مقترحة حالياً.")
+            st.plotly_chart(px.bar(w_data, x='Date_Str', y='Cost', title="التكلفة المتوقعة أسبوعياً"), use_container_width=True)
+        else: st.info("📊 لا توجد بيانات للرسم البياني.")
 
     with t_b:
-        st.subheader("💰 تحليل السيولة والمبيعات")
-        if not invoiced_adm.empty:
-            st.markdown("##### **📅 التدفقات النقدية الداخلة (حسب تاريخ الاستحقاق)**")
-            invoiced_adm['Due Date'] = pd.to_datetime(invoiced_adm['Due Date'])
-            invoiced_adm['Month'] = invoiced_adm['Due Date'].dt.to_period('M').astype(str)
-            cash_flow = invoiced_adm.groupby('Month')['Total Amount'].sum().reset_index()
-            st.plotly_chart(px.line(cash_flow, x='Month', y='Total Amount', title="التدفق النقدي المتوقع"), use_container_width=True)
-            
-            st.markdown("##### **📄 تفاصيل فواتير الاستحقاق**")
-            st.table(invoiced_adm[['Customer Name', 'Quantity', 'Total Amount', 'Due Date']].rename(columns={'Customer Name': 'العميل', 'Quantity': 'الكمية', 'Total Amount': 'القيمة', 'Due Date': 'تاريخ الاستحقاق'}))
-            
-            st.divider()
-            st.markdown("##### **📈 ملخص المبيعات**")
-            today = datetime.now()
-            last_week = today - timedelta(days=7)
-            w_sales = invoiced_adm[pd.to_datetime(invoiced_adm['Order Date']) >= last_week]['Quantity'].sum()
-            m_sales = invoiced_adm[pd.to_datetime(invoiced_adm['Order Date']).dt.month == today.month]['Quantity'].sum()
-            y_sales = invoiced_adm['Quantity'].sum()
-            
-            c_s1, c_s2, c_s3 = st.columns(3)
-            c_s1.metric("آخر أسبوع", f"{int(w_sales)} علبة")
-            c_s2.metric("هذا الشهر", f"{int(m_sales)} علبة")
-            c_s3.metric("إجمالي السنة", f"{int(y_sales)} علبة")
-        
-        st.divider()
-        st.markdown("##### **🎯 مبيعات المستهدف**")
+        st.subheader("🎯 مبيعات المستهدف")
         target_val = st.number_input("أدخل المبيعات المستهدفة (علبة)", value=5000)
         actual_val = invoiced_adm['Quantity'].sum() if not invoiced_adm.empty else 0
         percent = (actual_val/target_val*100) if target_val > 0 else 0
-        st.write(f"📊 نسبة تحقيق المستهدف: **{percent:.1f}%** ({int(actual_val)} من {target_val} علبة)")
+        st.write(f"📊 نسبة تحقيق المستهدف: **{percent:.1f}%**")
         st.progress(min(actual_val/target_val, 1.0))
 
     with t_c:
         st.subheader("📦 إدارة المخزون")
         st.metric("المخزون الحالي", f"{int(current_stock)} علبة")
-        # صلاحية تعديل المخزون للمدير
         new_q = st.number_input("تعديل كمية المخزون يدوياً", value=int(current_stock))
         if st.button("تحديث الكمية"):
             update_stock_quantity("صابون لآفار 3 لتر", new_q); st.success("✅ تم التحديث!"); st.rerun()
@@ -312,16 +240,29 @@ elif page == "واجهة الإدارة الذكية":
     with t_d:
         st.subheader("📍 إدارة نشاط الميدان")
         with st.container(border=True):
-            h1, h2, h3, h4, h5 = st.columns([1.5, 2, 1.5, 2, 1])
-            h1.write("**المندوب**"); h2.write("**العميل**"); h3.write("**التاريخ**"); h4.write("**الكمية**"); h5.write("**الإجراء**")
+            h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 1.5, 1.5, 2.5, 1])
+            h1.write("**المندوب**"); h2.write("**العميل**"); h3.write("**التاريخ**"); h4.write("**الكمية**"); h5.write("**مؤشر الثقة الذكي**"); h6.write("**الإجراء**")
             st.divider()
             if not visits.empty:
                 for i, r in visits.iterrows():
-                    cv1, cv2, cv3, cv4, cv5 = st.columns([1.5, 2, 1.5, 2, 1])
+                    cv1, cv2, cv3, cv4, cv5, cv6 = st.columns([1.5, 2, 1.5, 1.5, 2.5, 1])
                     cv1.write(r['Salesman'])
                     cv2.write(r['Customer Name'])
                     cv3.write(r['Date'])
                     cv4.write(f"{int(r['Potential Qty'])} علبة")
-                    if cv5.button("حذف 🗑️", key=f"adm_del_{i}"):
+                    
+                    # مؤشر الثقة الذكي للمدير فقط
+                    # حساب تلقائي بناءً على معطيات الزيارة
+                    auto_conf = 50
+                    if r['Visit Type'] == "عميل جديد": auto_conf += 20
+                    if r['Potential Qty'] > 500: auto_conf += 10
+                    days_diff = (pd.to_datetime(r['Potential Date']) - pd.to_datetime(r['Date'])).days
+                    if days_diff < 10: auto_conf += 15
+                    auto_conf = min(100, auto_conf)
+                    
+                    with cv5:
+                        st.slider("مؤشر الثقة", 0, 100, auto_conf, key=f"conf_{i}", disabled=False)
+                    
+                    if cv6.button("حذف 🗑️", key=f"adm_del_{i}"):
                         delete_visit(i); st.rerun()
             else: st.info("ℹ️ لا توجد سجلات حالياً.")
