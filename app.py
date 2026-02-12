@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from database import init_db, get_orders, add_order, update_order_status, get_stock, update_stock_quantity, add_visit, get_visits, delete_visit, delete_order, upload_to_github
+from database import init_db, get_orders, add_order, update_order_status, get_stock, update_stock_quantity, add_visit, get_visits, delete_visit, delete_order, upload_to_github, get_annual_target, update_annual_target
 from datetime import datetime, date, timedelta
 import plotly.express as px
 import io
@@ -356,7 +356,11 @@ elif page == "واجهة الإدارة الذكية":
     # ===== نظام تحقيق المستهدف السنوي =====
     st.markdown("### 🎯 نظام تحقيق المستهدف السنوي")
     with st.container(border=True):
-        target_val_year = st.number_input("أدخل المستهدف السنوي (علبة)", value=60000, min_value=1, key="annual_target") # افتراضي 5000 * 12
+        current_annual_target = get_annual_target()
+        target_val_year = st.number_input("أدخل المستهدف السنوي (علبة)", value=current_annual_target, min_value=1, key="annual_target_input")
+        
+        if target_val_year != current_annual_target:
+            update_annual_target(target_val_year)
         
         # حساب الكمية المباعة للسنة الحالية
         current_year = datetime.now().year
