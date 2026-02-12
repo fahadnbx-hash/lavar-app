@@ -100,3 +100,60 @@ def get_visit_confidence(visit_index):
 
 
 def upload_to_github(content, filename): return f"https://raw.githubusercontent.com/mock/inv/{filename}"
+
+# ===== دوال التعديل والحذف للمدير =====
+
+# دوال تعديل الفواتير
+def update_order(order_id, field, new_value):
+    """تحديث حقل معين في فاتورة معينة"""
+    idx = st.session_state.orders_df[st.session_state.orders_df["Order ID"] == order_id].index
+    if not idx.empty:
+        st.session_state.orders_df.loc[idx[0], field] = new_value
+
+def delete_order_by_id(order_id):
+    """حذف فاتورة بناءً على معرفها"""
+    st.session_state.orders_df = st.session_state.orders_df[st.session_state.orders_df["Order ID"] != order_id]
+
+# دوال تعديل المخزون
+def update_stock(product_name, new_quantity):
+    """تحديث كمية المخزون لمنتج معين"""
+    idx = st.session_state.stock_df[st.session_state.stock_df["Product"] == product_name].index
+    if not idx.empty:
+        st.session_state.stock_df.loc[idx[0], "Quantity"] = new_quantity
+
+def delete_stock_item(product_name):
+    """حذف منتج من المخزون"""
+    st.session_state.stock_df = st.session_state.stock_df[st.session_state.stock_df["Product"] != product_name]
+
+# دوال تعديل الزيارات الميدانية
+def update_visit(visit_index, field, new_value):
+    """تحديث حقل معين في زيارة معينة"""
+    if visit_index < len(st.session_state.visits_df):
+        st.session_state.visits_df.loc[visit_index, field] = new_value
+
+def delete_visit_by_index(visit_index):
+    """حذف زيارة بناءً على موقعها في الجدول"""
+    if visit_index < len(st.session_state.visits_df):
+        st.session_state.visits_df = st.session_state.visits_df.drop(visit_index).reset_index(drop=True)
+
+# دوال تعديل الإعدادات
+def update_setting(setting_name, new_value):
+    """تحديث قيمة إعداد معين"""
+    idx = st.session_state.settings_df[st.session_state.settings_df["Setting"] == setting_name].index
+    if not idx.empty:
+        st.session_state.settings_df.loc[idx[0], "Value"] = new_value
+    else:
+        new_setting = pd.DataFrame([{"Setting": setting_name, "Value": new_value}])
+        st.session_state.settings_df = pd.concat([st.session_state.settings_df, new_setting], ignore_index=True)
+
+def delete_setting(setting_name):
+    """حذف إعداد معين"""
+    st.session_state.settings_df = st.session_state.settings_df[st.session_state.settings_df["Setting"] != setting_name]
+
+# دالة عامة لحذف جميع البيانات (للإدارة فقط)
+def clear_all_data():
+    """مسح جميع البيانات (استخدام بحذر!)"""
+    st.session_state.orders_df = _get_mock_data("Orders")
+    st.session_state.stock_df = _get_mock_data("Stock")
+    st.session_state.visits_df = _get_mock_data("Visits")
+    st.session_state.settings_df = _get_mock_data("Settings")
