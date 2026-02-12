@@ -146,7 +146,7 @@ elif page == "واجهة المحاسب":
 elif page == "واجهة الإدارة الذكية":
     st.header("📊 مركز القيادة والتحكم الاستراتيجي")
     
-    # 1. ملخصات رقمية
+    # 1. ملخصات رقمية (تحسين بصري حسب الطلب)
     st.markdown("### 📈 ملخص الأداء العام")
     invoiced_orders = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
     total_sales_val = invoiced_orders['Total Amount'].sum() if not invoiced_orders.empty else 0
@@ -155,17 +155,19 @@ elif page == "واجهة الإدارة الذكية":
     total_pot_qty = visits['Potential Qty'].sum() if not visits.empty else 0
     pot_val = total_pot_qty * 15.0 
     
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("📄 فواتير صادرة", f"{len(invoiced_orders)}")
-    m2.metric("👥 إجمالي العملاء", f"{unique_customers}")
-    m3.metric("📍 إجمالي الزيارات", f"{len(visits)}")
-    m4.metric("📦 كميات مباعة", f"{int(total_sales_qty)} علبة")
-    
-    m5, m6, m7, m8 = st.columns(4)
-    m5.metric("💰 قيمة المبيعات", f"{total_sales_val:,.0f} ريال")
-    m6.metric("🔮 كميات متوقعة", f"{int(total_pot_qty)} علبة")
-    m7.metric("💵 قيمة متوقعة", f"{pot_val:,.0f} ريال")
-    m8.metric("🏭 تكلفة إنتاج التوقعات", f"{total_pot_qty * UNIT_COST:,.0f} ريال")
+    st.markdown("#### **الفعلي**")
+    col_actual1, col_actual2, col_actual3, col_actual4 = st.columns(4)
+    col_actual1.metric("📄 فواتير صادرة", f"{len(invoiced_orders)}")
+    col_actual2.metric("👥 إجمالي العملاء", f"{unique_customers}")
+    col_actual3.metric("📦 كميات مباعة", f"{int(total_sales_qty)} علبة")
+    col_actual4.metric("💰 قيمة المبيعات", f"{total_sales_val:,.0f} ريال")
+
+    st.markdown("#### **المتوقع**")
+    col_expected1, col_expected2, col_expected3, col_expected4 = st.columns(4)
+    col_expected1.metric("📍 إجمالي الزيارات", f"{len(visits)}")
+    col_expected2.metric("🔮 كميات متوقعة", f"{int(total_pot_qty)} علبة")
+    col_expected3.metric("💵 قيمة متوقعة", f"{pot_val:,.0f} ريال")
+    col_expected4.metric("🏭 تكلفة إنتاج التوقعات", f"{total_pot_qty * UNIT_COST:,.0f} ريال")
 
     tab_strat, tab_sales, tab_stock, tab_visits = st.tabs(["🧠 التخطيط ودعم القرار", "💰 السيولة والمبيعات", "📦 إدارة المخزون", "📍 نشاط الميدان"])
     
@@ -241,7 +243,8 @@ elif page == "واجهة الإدارة الذكية":
                 st.plotly_chart(px.bar(m_sales, x='Month', y='Total Amount', title="التحصيلات الشهرية", color_discrete_sequence=['green']), use_container_width=True)
             with c2:
                 w_sales = inv.groupby('Week')['Total Amount'].sum().reset_index()
-                st.plotly_chart(px.line(w_sales, x='Week', y='Total Amount', title="التحصيلات الأسبوعية", markers=True), use_container_width=True)
+                # تم تغيير الرسم البياني من خطي إلى أعمدة ملونة (أزرق)
+                st.plotly_chart(px.bar(w_sales, x='Week', y='Total Amount', title="التحصيلات الأسبوعية", color_discrete_sequence=['blue']), use_container_width=True)
         else: st.info("لا توجد فواتير كافية")
 
     with tab_stock:
