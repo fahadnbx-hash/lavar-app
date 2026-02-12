@@ -4,6 +4,7 @@ from database import init_db, get_orders, add_order, update_order_status, get_st
 from datetime import datetime, date, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
+import base64
 import os
 
 # إعداد الصفحة
@@ -13,16 +14,23 @@ init_db()
 # الثوابت التشغيلية
 UNIT_COST = 5.0
 LEAD_TIME_DAYS = 9
-# المسار المحلي الصحيح للصورة في النظام
-LOCAL_LOGO_PATH = "/home/ubuntu/upload/pasted_file_jFZ7o6_lavar.jpg"
 
-# --- القائمة الجانبية (عرض الشعار الحقيقي من المسار المحلي) ---
-with st.sidebar:
-    if os.path.exists(LOCAL_LOGO_PATH):
-        st.image(LOCAL_LOGO_PATH, use_container_width=True)
+# دالة لعرض الشعار (حل جذري باستخدام Base64)
+def display_logo():
+    logo_path = "/home/ubuntu/upload/pasted_file_jFZ7o6_lavar.jpg"
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as f:
+            data = base64.b64encode(f.read()).decode()
+            st.sidebar.markdown(
+                f'<div style="text-align: center;"><img src="data:image/jpeg;base64,{data}" style="width: 100%; max-width: 200px; margin-bottom: 20px;"></div>',
+                unsafe_allow_html=True
+            )
     else:
-        # في حال عدم وجود الصورة يعرض الاسم كبديل مؤقت لضمان عدم تعطل النظام
-        st.markdown("### 🏢 لآفار للمنظفات")
+        st.sidebar.markdown("### 🏢 لآفار للمنظفات")
+
+# --- القائمة الجانبية (عرض الشعار) ---
+with st.sidebar:
+    display_logo()
     st.divider()
 
 # --- نظام تسجيل الدخول ---
