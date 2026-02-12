@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from database import init_db, get_orders, add_order, update_order_status, get_stock, update_stock_quantity, add_visit, get_visits, delete_visit, delete_order, upload_to_github, get_annual_target, update_annual_target, get_master_confidence, update_master_confidence, update_visit_confidence, get_visit_confidence
+from database import init_db, get_orders, add_order, update_order_status, get_stock, update_stock_quantity, add_visit, get_visits, delete_visit, delete_order, upload_to_github, get_annual_target, update_annual_target, get_master_confidence, update_master_confidence, update_visit_confidence, get_visit_confidence, update_order, delete_order_by_id, update_stock, delete_stock_item, update_visit, delete_visit_by_index, update_setting, delete_setting, clear_all_data
 from datetime import datetime, date, timedelta
 import plotly.express as px
 import io
@@ -586,3 +586,98 @@ elif page == "واجهة الإدارة الذكية":
                     st.rerun()
         else:
             st.info("ℹ️ لا توجد سجلات حالياً.")
+
+    # ===== قسم إدارة البيانات (Admin Panel) =====
+    st.markdown("---")
+    st.markdown("### ⚙️ لوحة إدارة البيانات (Admin Only)")
+    
+    with st.expander("🔧 إدارة الفواتير", expanded=False):
+        st.subheader("تعديل أو حذف الفواتير")
+        orders = get_orders()
+        if not orders.empty:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                selected_order = st.selectbox("اختر فاتورة للتعديل أو الحذف", 
+                    [f"{row['Order ID']} - {row['Customer Name']}" for _, row in orders.iterrows()],
+                    key="admin_order_select")
+            
+            if selected_order:
+                order_id = selected_order.split(" - ")[0]
+                col_edit, col_del = st.columns(2)
+                with col_edit:
+                    if st.button("✏️ تعديل", key=f"edit_order_{order_id}"):
+                        st.info("اختر الحقل والقيمة الجديدة")
+                        field = st.selectbox("الحقل المراد تعديله", 
+                            ["Customer Name", "Quantity", "Unit Price", "Status"], key=f"field_{order_id}")
+                        new_val = st.text_input(f"القيمة الجديدة لـ {field}", key=f"newval_{order_id}")
+                        if st.button("حفظ التعديل", key=f"save_{order_id}"):
+                            update_order(order_id, field, new_val)
+                            st.success("✅ تم التعديل بنجاح")
+                            st.rerun()
+                
+                with col_del:
+                    if st.button("🗑️ حذف", key=f"del_order_{order_id}"):
+                        delete_order_by_id(order_id)
+                        st.success("✅ تم الحذف بنجاح")
+                        st.rerun()
+    
+    with st.expander("📦 إدارة المخزون", expanded=False):
+        st.subheader("تعديل أو حذف المخزون")
+        stock = get_stock()
+        if not stock.empty:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                selected_product = st.selectbox("اختر منتج", stock["Product"].tolist(), key="admin_stock_select")
+            
+            if selected_product:
+                col_edit, col_del = st.columns(2)
+                with col_edit:
+                    if st.button("✏️ تعديل الكمية", key=f"edit_stock_{selected_product}"):
+                        new_qty = st.number_input("الكمية الجديدة", min_value=0, key=f"newqty_{selected_product}")
+                        if st.button("حفظ", key=f"save_stock_{selected_product}"):
+                            update_stock(selected_product, new_qty)
+                            st.success("✅ تم التعديل بنجاح")
+                            st.rerun()
+                
+                with col_del:
+                    if st.button("🗑️ حذف المنتج", key=f"del_stock_{selected_product}"):
+                        delete_stock_item(selected_product)
+                        st.success("✅ تم الحذف بنجاح")
+                        st.rerun()
+    
+    with st.expander("👥 إدارة الزيارات الميدانية", expanded=False):
+        st.subheader("تعديل أو حذف الزيارات")
+        visits = get_visits()
+        if not visits.empty:
+            visit_options = [f"{idx}: {row['Customer Name']} - {row['Potential Qty']} علبة" 
+                           for idx, row in visits.iterrows()]
+            selected_visit_str = st.selectbox("اختر زيارة", visit_options, key="admin_visit_select")
+            
+            if selected_visit_str:
+                visit_idx = int(selected_visit_str.split(":")[0])
+                col_edit, col_del = st.columns(2)
+                
+                with col_edit:
+                    if st.button("✏️ تعديل", key=f"edit_visit_{visit_idx}"):
+                        field = st.selectbox("الحقل المراد تعديله", 
+                            ["Customer Name", "Potential Qty", "Potential Date", "Notes"], 
+                            key=f"field_visit_{visit_idx}")
+                        new_val = st.text_input(f"القيمة الجديدة", key=f"newval_visit_{visit_idx}")
+                        if st.button("حفظ التعديل", key=f"save_visit_{visit_idx}"):
+                            update_visit(visit_idx, field, new_val)
+                            st.success("✅ تم التعديل بنجاح")
+                            st.rerun()
+                
+                with col_del:
+                    if st.button("🗑️ حذف الزيارة", key=f"del_visit_{visit_idx}"):
+                        delete_visit_by_index(visit_idx)
+                        st.success("✅ تم الحذف بنجاح")
+                        st.rerun()
+    
+    with st.expander("⚡ خطر - مسح جميع البيانات", expanded=False):
+        st.warning("⚠️ هذا الإجراء سيمسح جميع البيانات بشكل نهائي!")
+        if st.button("🔥 مسح كل البيانات", key="clear_all"):
+            if st.checkbox("أنا متأكد من حذف جميع البيانات", key="confirm_clear"):
+                clear_all_data()
+                st.error("❌ تم مسح جميع البيانات!")
+                st.rerun()
