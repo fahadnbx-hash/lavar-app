@@ -10,16 +10,34 @@ def _get_mock_data(sheet_name):
         return pd.DataFrame({"Product": ["صابون لآفار 3 لتر"], "Quantity": [5000]})
     elif sheet_name == "Visits":
         return pd.DataFrame(columns=["Date", "Salesman", "Customer Name", "Visit Type", "Potential Qty", "Potential Date", "Notes"])
+    elif sheet_name == "Settings":
+        return pd.DataFrame({"Setting": ["annual_target"], "Value": [60000]})
     return pd.DataFrame()
 
 def init_db():
     if 'orders_df' not in st.session_state: st.session_state.orders_df = _get_mock_data("Orders")
     if 'stock_df' not in st.session_state: st.session_state.stock_df = _get_mock_data("Stock")
     if 'visits_df' not in st.session_state: st.session_state.visits_df = _get_mock_data("Visits")
+    if 'settings_df' not in st.session_state: st.session_state.settings_df = _get_mock_data("Settings")
 
 def get_orders(): return st.session_state.orders_df
 def get_stock(): return st.session_state.stock_df
 def get_visits(): return st.session_state.visits_df
+def get_annual_target():
+    settings_df = st.session_state.settings_df
+    target_row = settings_df[settings_df["Setting"] == "annual_target"]
+    if not target_row.empty:
+        return int(target_row["Value"].iloc[0])
+    return 60000 # القيمة الافتراضية
+
+def update_annual_target(new_target):
+    settings_df = st.session_state.settings_df
+    idx = settings_df[settings_df["Setting"] == "annual_target"].index
+    if not idx.empty:
+        settings_df.loc[idx, "Value"] = new_target
+    else:
+        new_setting = pd.DataFrame([{"Setting": "annual_target", "Value": new_target}])
+        st.session_state.settings_df = pd.concat([settings_df, new_setting], ignore_index=True)
 
 def add_order(name, cr, tax, address, phone, prod, qty, days, price):
     new_id = f"ORD{len(st.session_state.orders_df) + 1:03d}"
