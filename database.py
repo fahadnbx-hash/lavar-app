@@ -9,9 +9,9 @@ def _get_mock_data(sheet_name):
     elif sheet_name == "Stock":
         return pd.DataFrame({"Product": ["صابون لآفار 3 لتر"], "Quantity": [5000]})
     elif sheet_name == "Visits":
-        return pd.DataFrame(columns=["Date", "Salesman", "Customer Name", "Potential Qty", "Potential Date", "Notes"])
+        return pd.DataFrame(columns=["Date", "Salesman", "Customer Name", "Potential Qty", "Potential Date", "Notes", "Confidence"])
     elif sheet_name == "Settings":
-        return pd.DataFrame({"Setting": ["annual_target"], "Value": [60000]})
+        return pd.DataFrame({"Setting": ["annual_target", "master_confidence"], "Value": [60000, 100]})
     return pd.DataFrame()
 
 def init_db():
@@ -64,6 +64,39 @@ def add_visit(salesman, customer, pot_qty, pot_date, notes):
 
 def delete_visit(index):
     if index in st.session_state.visits_df.index:
+
+def get_master_confidence():
+    """الحصول على ضابط الإيقاع العام"""
+    settings_df = st.session_state.settings_df
+    conf_row = settings_df[settings_df["Setting"] == "master_confidence"]
+    if not conf_row.empty:
+        return int(conf_row["Value"].iloc[0])
+    return 100
+
+def update_master_confidence(new_confidence):
+    """تحديث ضابط الإيقاع العام"""
+    settings_df = st.session_state.settings_df
+    idx = settings_df[settings_df["Setting"] == "master_confidence"].index
+    if not idx.empty:
+        settings_df.loc[idx, "Value"] = new_confidence
+    else:
+        new_setting = pd.DataFrame([{"Setting": "master_confidence", "Value": new_confidence}])
+        st.session_state.settings_df = pd.concat([settings_df, new_setting], ignore_index=True)
+
+def update_visit_confidence(visit_index, confidence_value):
+    """تحديث قيمة الثقة لزيارة معينة"""
+    if visit_index < len(st.session_state.visits_df):
+        st.session_state.visits_df.loc[visit_index, "Confidence"] = confidence_value
+
+def get_visit_confidence(visit_index):
+    """الحصول على قيمة الثقة لزيارة معينة"""
+    if visit_index < len(st.session_state.visits_df):
+        conf = st.session_state.visits_df.loc[visit_index, "Confidence"]
+        if pd.isna(conf) or conf == "":
+            return None
+        return int(conf)
+    return None
+
         st.session_state.visits_df = st.session_state.visits_df.drop(index).reset_index(drop=True)
 
 def upload_to_github(content, filename): return f"https://raw.githubusercontent.com/mock/inv/{filename}"
