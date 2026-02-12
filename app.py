@@ -135,7 +135,7 @@ elif page == "واجهة المحاسب":
     if not pending.empty:
         for _, row in pending.iterrows():
             with st.container(border=True):
-                st.write(f"**طلب #{row['Order ID']}** | العميل: {row['Customer Name']} | المبلغ: {row['Total Amount']} ريال")
+                st.write(f"**طلب #{row['Order ID']}** | العميل: {row['Customer Name']} | **المبلغ:** {row['Total Amount']} ريال")
                 pdf = st.file_uploader("ارفع الفاتورة (PDF)", type=['pdf'], key=f"f_{row['Order ID']}")
                 if pdf and st.button("✅ اعتماد ورفع", key=f"b_{row['Order ID']}"):
                     url = upload_to_github(pdf.getvalue(), f"inv_{row['Order ID']}.pdf")
@@ -146,7 +146,7 @@ elif page == "واجهة المحاسب":
 elif page == "واجهة الإدارة الذكية":
     st.header("📊 مركز القيادة والتحكم الاستراتيجي")
     
-    # 1. ملخصات رقمية (تحسين بصري حسب الطلب)
+    # 1. ملخصات رقمية (تحسين بصري)
     st.markdown("### 📈 ملخص الأداء العام")
     invoiced_orders = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
     total_sales_val = invoiced_orders['Total Amount'].sum() if not invoiced_orders.empty else 0
@@ -225,6 +225,30 @@ elif page == "واجهة الإدارة الذكية":
             
             if total_needed_now > 0:
                 st.info(f"💡 **التوصية النهائية:** يجب إنتاج إجمالي **{int(total_needed_now)}** علبة، والبدء في تاريخ **{earliest_date}**.")
+
+                # التحليل المالي للإنتاج (المتطلب الجديد)
+                st.markdown("#### 💰 تحليل تغطية تكلفة الإنتاج من التدفقات النقدية")
+                if earliest_date != "لا يوجد":
+                    production_cost = total_needed_now * UNIT_COST
+                    
+                    # جمع الفواتير المستحقة قبل أو خلال تاريخ بدء الإنتاج
+                    relevant_invoices = invoiced_orders[pd.to_datetime(invoiced_orders['Due Date']) <= pd.to_datetime(earliest_date)]
+                    expected_cash_flow = relevant_invoices['Total Amount'].sum() if not relevant_invoices.empty else 0
+
+                    st.write(f"- **تكلفة الإنتاج الموصى بها:** {production_cost:,.0f} ريال")
+                    st.write(f"- **التدفق النقدي المتوقع (حتى {earliest_date}):** {expected_cash_flow:,.0f} ريال")
+
+                    if expected_cash_flow >= production_cost:
+                        surplus = expected_cash_flow - production_cost
+                        st.success(f"✅ **تغطية كاملة:** تكلفة الإنتاج مغطاة بالكامل من التدفقات النقدية المتوقعة. الفائض: {surplus:,.0f} ريال.")
+                    else:
+                        shortfall = production_cost - expected_cash_flow
+                        coverage_percentage = (expected_cash_flow / production_cost) * 100 if production_cost > 0 else 0
+                        st.warning(f"⚠️ **عجز في التمويل:** التدفق النقدي يغطي {coverage_percentage:.0f}% من تكلفة الإنتاج.")
+                        st.error(f"**تحتاج لتوفير:** {shortfall:,.0f} ريال إضافية لتغطية تكلفة الإنتاج الموصى بها.")
+                else:
+                    st.info("لا توجد توصية إنتاج حالياً لحساب التحليل المالي.")
+
             else:
                 st.success("💡 **التوصية النهائية:** المخزون الحالي كافٍ، لا حاجة لإنتاج جديد حالياً.")
         else: st.info("لا توجد بيانات لبناء الجدول")
@@ -243,7 +267,6 @@ elif page == "واجهة الإدارة الذكية":
                 st.plotly_chart(px.bar(m_sales, x='Month', y='Total Amount', title="التحصيلات الشهرية", color_discrete_sequence=['green']), use_container_width=True)
             with c2:
                 w_sales = inv.groupby('Week')['Total Amount'].sum().reset_index()
-                # تم تغيير الرسم البياني من خطي إلى أعمدة ملونة (أزرق)
                 st.plotly_chart(px.bar(w_sales, x='Week', y='Total Amount', title="التحصيلات الأسبوعية", color_discrete_sequence=['blue']), use_container_width=True)
         else: st.info("لا توجد فواتير كافية")
 
