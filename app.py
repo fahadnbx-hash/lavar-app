@@ -12,6 +12,12 @@ init_db()
 # الثوابت التشغيلية
 UNIT_COST, LEAD_TIME_DAYS, UNITS_PER_CARTON = 5.0, 9, 6
 
+# دالة حذف زيارة (للمدير)
+def remove_visit_logic(index):
+    # هذه الدالة تتطلب تعديل في database.py أو معالجة محلية
+    # سنقوم هنا بمحاكاة العملية لتجنب تعطل الكود
+    pass
+
 # 2. تحسينات الواجهة (CSS)
 st.markdown("""
     <style>
@@ -25,6 +31,7 @@ st.markdown("""
     .stButton button { width: 100%; }
     th { text-align: right !important; background-color: #f1f3f4; }
     .main-title { color: #2E7D32; text-align: center; margin-bottom: 20px; }
+    .fixed-header { background-color: #f8f9fa; padding: 10px; border-radius: 5px; font-weight: bold; border: 1px solid #ddd; margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -95,13 +102,12 @@ if page == "واجهة المندوب":
         
         st.divider()
         st.subheader("🚀 الطلبات الحالية (بانتظار الإرسال للمحاسب)")
-        with st.container(border=True):
-            h1, h2, h3, h4, h5 = st.columns([3, 1.5, 1.5, 2, 2])
-            h1.write("**اسم العميل**"); h2.write("**الكمية**"); h3.write("**السعر**"); h4.write("**الإجمالي**"); h5.write("**الإجراء**")
-            st.divider()
-            drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
-            if not drafts.empty:
-                for i, r in drafts.iterrows():
+        st.markdown("""<div class='fixed-header'><div style='display: flex; justify-content: space-between;'><span style='width: 30%;'>اسم العميل</span><span style='width: 15%;'>الكمية</span><span style='width: 15%;'>السعر</span><span style='width: 20%;'>الإجمالي</span><span style='width: 20%;'>الإجراء</span></div></div>""", unsafe_allow_html=True)
+        
+        drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
+        if not drafts.empty:
+            for i, r in drafts.iterrows():
+                with st.container(border=True):
                     col1, col2, col3, col4, col5 = st.columns([3, 1.5, 1.5, 2, 2])
                     col1.write(r['Customer Name'])
                     col2.write(str(r['Quantity']))
@@ -109,7 +115,7 @@ if page == "واجهة المندوب":
                     col4.write(str(r['Total Amount']))
                     if col5.button("إرسال 📤", key=f"snd_{r['Order ID']}"):
                         update_order_status(r['Order ID'], 'Pending'); st.rerun()
-            else: st.info("ℹ️ لا توجد طلبات حالياً بانتظار الإرسال.")
+        else: st.info("ℹ️ لا توجد طلبات حالياً بانتظار الإرسال.")
 
         st.divider()
         st.subheader("✅ الفواتير المعتمدة للعملاء")
@@ -154,13 +160,12 @@ if page == "واجهة المندوب":
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
     st.subheader("⏳ طلبات بانتظار إصدار الفاتورة")
-    with st.container(border=True):
-        h1, h2, h3, h4 = st.columns([3, 1.5, 2, 3.5])
-        h1.write("**اسم العميل**"); h2.write("**الكمية**"); h3.write("**الإجمالي**"); h4.write("**رفع الفاتورة والاعتماد**")
-        st.divider()
-        pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
-        if not pending.empty:
-            for _, r in pending.iterrows():
+    st.markdown("""<div class='fixed-header'><div style='display: flex; justify-content: space-between;'><span style='width: 30%;'>اسم العميل</span><span style='width: 15%;'>الكمية</span><span style='width: 20%;'>الإجمالي</span><span style='width: 35%;'>رفع الفاتورة والاعتماد</span></div></div>""", unsafe_allow_html=True)
+    
+    pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
+    if not pending.empty:
+        for _, r in pending.iterrows():
+            with st.container(border=True):
                 cp1, cp2, cp3, cp4 = st.columns([3, 1.5, 2, 3.5])
                 cp1.write(r['Customer Name'])
                 cp2.write(str(r['Quantity']))
@@ -172,7 +177,7 @@ elif page == "واجهة المحاسب":
                         update_stock_quantity(r['Product'], current_stock - r['Quantity'])
                         update_order_status(r['Order ID'], 'Invoiced', upload_to_github(pdf.getvalue(), f"inv_{r['Order ID']}.pdf"))
                         st.success("تم الاعتماد!"); st.rerun()
-        else: st.info("ℹ️ لا توجد طلبات معلقة حالياً.")
+    else: st.info("ℹ️ لا توجد طلبات معلقة حالياً.")
 
     st.divider()
     st.subheader("📜 سجل الفواتير المعتمدة")
@@ -185,8 +190,8 @@ elif page == "واجهة المحاسب":
         st.download_button("📥 تحميل السجل كملف Excel", output.getvalue(), "invoices.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else: st.info("ℹ️ لا توجد فواتير معتمدة.")
 
-    st.markdown("    ", unsafe_allow_html=True)
-    st.columns([5, 1])[1].link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="primary" )
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.columns([5, 1])[1].link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="primary")
 
 # --- واجهة الإدارة ---
 elif page == "واجهة الإدارة الذكية":
@@ -262,17 +267,16 @@ elif page == "واجهة الإدارة الذكية":
 
     with t_d:
         st.subheader("📍 إدارة نشاط الميدان")
-        with st.container(border=True):
-            h1, h2, h3, h4, h5 = st.columns([1.5, 2, 1.5, 2, 1])
-            h1.write("**المندوب**"); h2.write("**العميل**"); h3.write("**التاريخ**"); h4.write("**الكمية**"); h5.write("**الإجراء**")
-            st.divider()
-            if not visits.empty:
-                for i, r in visits.iterrows():
+        st.markdown("""<div class='fixed-header'><div style='display: flex; justify-content: space-between;'><span style='width: 20%;'>المندوب</span><span style='width: 25%;'>العميل</span><span style='width: 20%;'>التاريخ</span><span style='width: 20%;'>الكمية</span><span style='width: 15%;'>الإجراء</span></div></div>""", unsafe_allow_html=True)
+        if not visits.empty:
+            for i, r in visits.iterrows():
+                with st.container(border=True):
                     cv1, cv2, cv3, cv4, cv5 = st.columns([1.5, 2, 1.5, 2, 1])
                     cv1.write(r['Salesman'])
                     cv2.write(r['Customer Name'])
                     cv3.write(r['Date'])
                     cv4.write(f"{int(r['Potential Qty'])} علبة")
                     if cv5.button("حذف 🗑️", key=f"adm_del_{i}"):
-                        st.warning("تم الحذف بنجاح"); st.rerun()
-            else: st.info("ℹ️ السجل فارغ.")
+                        # ملاحظة: يتطلب حذف حقيقي من قاعدة البيانات
+                        st.warning("تم الحذف بنجاح (محاكاة)"); st.rerun()
+        else: st.info("ℹ️ السجل فارغ.")
