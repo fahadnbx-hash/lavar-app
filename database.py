@@ -9,7 +9,7 @@ def _get_mock_data(sheet_name):
     elif sheet_name == "Stock":
         return pd.DataFrame({"Product": ["صابون لآفار 3 لتر"], "Quantity": [5000]})
     elif sheet_name == "Visits":
-        return pd.DataFrame(columns=["Date", "Salesman", "Customer Name", "Visit Type", "Potential Qty", "Potential Date", "Notes"])
+        return pd.DataFrame(columns=["Date", "Salesman", "Customer Name", "Potential Qty", "Potential Date", "Notes"])
     elif sheet_name == "Settings":
         return pd.DataFrame({"Setting": ["annual_target"], "Value": [60000]})
     return pd.DataFrame()
@@ -58,8 +58,8 @@ def update_stock_quantity(prod, qty):
     idx = st.session_state.stock_df[st.session_state.stock_df["Product"] == prod].index
     if not idx.empty: st.session_state.stock_df.loc[idx, "Quantity"] = qty
 
-def add_visit(salesman, customer, v_type, pot_qty, pot_date, notes):
-    new_v = pd.DataFrame([{"Date": datetime.now().strftime("%Y-%m-%d"), "Salesman": salesman, "Customer Name": customer, "Visit Type": v_type, "Potential Qty": pot_qty, "Potential Date": pot_date, "Notes": notes}])
+def add_visit(salesman, customer, pot_qty, pot_date, notes):
+    new_v = pd.DataFrame([{"Date": datetime.now().strftime("%Y-%m-%d"), "Salesman": salesman, "Customer Name": customer, "Potential Qty": pot_qty, "Potential Date": pot_date, "Notes": notes}])
     st.session_state.visits_df = pd.concat([st.session_state.visits_df, new_v], ignore_index=True)
 
 def delete_visit(index):
