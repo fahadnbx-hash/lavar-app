@@ -45,6 +45,7 @@ def add_visit(salesman, customer, v_type, pot_qty, pot_date, notes):
     st.session_state.visits_df = pd.concat([st.session_state.visits_df, new_v], ignore_index=True)
 
 def delete_visit(index):
-    st.session_state.visits_df = st.session_state.visits_df.drop(index).reset_index(drop=True)
+    if index in st.session_state.visits_df.index:
+        st.session_state.visits_df = st.session_state.visits_df.drop(index).reset_index(drop=True)
 
 def upload_to_github(content, filename): return f"https://raw.githubusercontent.com/mock/inv/{filename}"
