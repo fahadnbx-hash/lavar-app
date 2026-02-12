@@ -353,20 +353,24 @@ elif page == "واجهة الإدارة الذكية":
     
     st.divider()
     
-    # ===== نظام تحقيق المستهدف الشهري =====
-    st.markdown("### 🎯 نظام تحقيق المستهدف الشهري")
+    # ===== نظام تحقيق المستهدف السنوي =====
+    st.markdown("### 🎯 نظام تحقيق المستهدف السنوي")
     with st.container(border=True):
-        target_val = st.number_input("أدخل المستهدف الشهري (علبة)", value=5000, min_value=1)
-        actual_val = sales_qty
-        percent = (actual_val / target_val * 100) if target_val > 0 else 0
+        target_val_year = st.number_input("أدخل المستهدف السنوي (علبة)", value=60000, min_value=1, key="annual_target") # افتراضي 5000 * 12
+        
+        # حساب الكمية المباعة للسنة الحالية
+        current_year = datetime.now().year
+        sales_qty_year = invoiced_adm[pd.to_datetime(invoiced_adm["Order Date"]).dt.year == current_year]["Quantity"].sum() if not invoiced_adm.empty else 0
+        
+        percent_year = (sales_qty_year / target_val_year * 100) if target_val_year > 0 else 0
         
         col_t1, col_t2 = st.columns([2, 1])
         with col_t1:
-            st.write(f"**نسبة تحقيق المستهدف: {percent:.1f}%**")
-            st.progress(min(actual_val / target_val, 1.0))
+            st.write(f"**نسبة تحقيق المستهدف السنوي: {percent_year:.1f}%**")
+            st.progress(min(sales_qty_year / target_val_year, 1.0))
         with col_t2:
-            st.metric("المتحقق", f"{int(actual_val)} علبة")
-            st.metric("المستهدف", f"{int(target_val)} علبة")
+            st.metric("المتحقق", f"{int(sales_qty_year)} علبة")
+            st.metric("المستهدف", f"{int(target_val_year)} علبة")
     
     st.divider()
     
