@@ -14,7 +14,7 @@ UNIT_COST = 5.0
 LEAD_TIME_DAYS = 9
 UNITS_PER_CARTON = 6
 
-# دالة مساعدة لحذف زيارة (يتم التعامل معها عبر session_state في database.py)
+# دالة مساعدة لحذف زيارة
 def remove_visit(index):
     st.session_state.visits_df = st.session_state.visits_df.drop(index).reset_index(drop=True)
 
@@ -98,7 +98,6 @@ if page == "واجهة المندوب":
                     with c_info:
                         st.markdown(f"### 👤 {row['Customer Name']}")
                         st.markdown(f"📦 **الكمية:** `{row['Quantity']}` علبة | 💰 **السعر:** `{row['Unit Price']:.2f}` ريال")
-                        st.markdown(f"💵 **الإجمالي:** `{row['Total Amount']:,.2f}` ريال")
                     with c_action:
                         c_send, c_del = st.columns(2)
                         with c_send:
@@ -183,14 +182,9 @@ elif page == "واجهة الإدارة الذكية":
         if not v_df.empty:
             v_df['Potential Date'] = pd.to_datetime(v_df['Potential Date'])
             v_df['Month'] = v_df['Potential Date'].dt.to_period('M').astype(str)
-            v_df['Week'] = v_df['Potential Date'].dt.to_period('W').astype(str)
             v_df['Adj Qty'] = v_df['Potential Qty'] * (conf/100)
             monthly_demand = v_df.groupby('Month')['Adj Qty'].sum().reset_index()
-            weekly_prod_cost = v_df.groupby('Week')['Adj Qty'].sum().reset_index()
-            weekly_prod_cost['Cost'] = weekly_prod_cost['Adj Qty'] * UNIT_COST
-        else:
-            monthly_demand = pd.DataFrame(columns=['Month', 'Adj Qty'])
-            weekly_prod_cost = pd.DataFrame(columns=['Week', 'Cost'])
+        else: monthly_demand = pd.DataFrame(columns=['Month', 'Adj Qty'])
 
         with st.container(border=True):
             total_forecast = monthly_demand['Adj Qty'].sum() if not monthly_demand.empty else 0
@@ -217,33 +211,36 @@ elif page == "واجهة الإدارة الذكية":
                 st.info(f"💡 **التوصية:** يجب إنتاج **{int(total_needed_now)}** علبة، والبدء في **{earliest_date}**.")
             else:
                 st.success("✅ **المخزون الحالي كافٍ ولا توجد حاجة لطلبات إنتاج حالياً.**")
-        else: st.info("لا توجد بيانات لبناء الجدول")
-
-    with tab_sales:
-        if not invoiced_orders.empty:
-            inv = invoiced_orders.copy()
-            inv['Due Date'] = pd.to_datetime(inv['Due Date'])
-            inv['Month'] = inv['Due Date'].dt.to_period('M').astype(str)
-            inv['Week'] = inv['Due Date'].dt.to_period('W').astype(str)
-            c1, c2 = st.columns(2)
-            with c1: st.plotly_chart(px.bar(inv.groupby('Month')['Total Amount'].sum().reset_index(), x='Month', y='Total Amount', title="التحصيلات الشهرية", color_discrete_sequence=['green']), use_container_width=True)
-            with c2: st.plotly_chart(px.bar(inv.groupby('Week')['Total Amount'].sum().reset_index(), x='Week', y='Total Amount', title="التحصيلات الأسبوعية", color_discrete_sequence=['blue']), use_container_width=True)
 
     with tab_stock:
         new_q = st.number_input("تحديث المخزون يدوياً", value=int(current_stock))
         if st.button("حفظ التحديث"):
-            update_stock_quantity("صابون لآفار 3 لتر", new_q); st.success("تم التحديث!"); st.rerun()
+            update_stock_quantity("صابون لآفار 3 لتر", new_q); st.rerun()
 
     with tab_visits:
         st.subheader("📍 إدارة سجل نشاط الميدان")
         if not visits.empty:
+            # تصميم جدول احترافي ومنظم
+            st.markdown("""
+                <style>
+                .visit-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                .visit-table th { background-color: #f1f3f4; padding: 12px; text-align: right; border-bottom: 2px solid #ddd; }
+                .visit-table td { padding: 12px; border-bottom: 1px solid #eee; }
+                </style>
+            """, unsafe_allow_html=True)
+            
+            # عرض البيانات في شكل صفوف منظمة
             for index, row in visits.iterrows():
                 with st.container(border=True):
-                    c_v1, c_v2 = st.columns([4, 1])
-                    with c_v1:
-                        st.write(f"**المندوب:** {row['Salesman']} | **العميل:** {row['Customer Name']} | **التاريخ:** {row['Date']}")
-                        st.write(f"📦 **الكمية المتوقعة:** {row['Potential Qty']} علبة في تاريخ {row['Potential Date']}")
-                    with c_v2:
-                        if st.button("حذف 🗑️", key=f"v_del_{index}", use_container_width=True):
-                            remove_visit(index); st.success("تم الحذف!"); st.rerun()
+                    c1, c2, c3, c4, c5 = st.columns([1.5, 2, 1.5, 2, 1])
+                    if index == 0: # عناوين الأعمدة في أول صف فقط
+                        st.markdown("**المندوب | العميل | التاريخ | الكمية المتوقعة | الإجراء**")
+                        st.divider()
+                    
+                    c1.write(row['Salesman'])
+                    c2.write(row['Customer Name'])
+                    c3.write(row['Date'])
+                    c4.write(f"{row['Potential Qty']} علبة ({row['Potential Date']})")
+                    if c5.button("حذف 🗑️", key=f"v_del_{index}", use_container_width=True):
+                        remove_visit(index); st.rerun()
         else: st.info("لا توجد زيارات مسجلة")
