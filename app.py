@@ -5,6 +5,7 @@ from datetime import datetime, date, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
 import base64
+import os
 
 # إعداد الصفحة
 st.set_page_config(page_title="نظام لآفار للمنظفات - النسخة الاستراتيجية", layout="wide")
@@ -14,18 +15,21 @@ init_db()
 UNIT_COST = 5.0
 LEAD_TIME_DAYS = 9
 
-# كود الصورة الحقيقي (Base64) - تم تحويل شعار لآفار المرفق لدمجه برمجياً
-LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAAA1BMVEX///+nxBvIAAAAAXRSTlMAQObYZgAAAD1JREFUeNrtwTEBAAAAwiD7p7bGDmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAbOnAAATH667UAAAAASUVORK5CYII=" 
-# ملاحظة للمستخدم: تم دمج كود الصورة الفعلي هنا لضمان الظهور المباشر
+# كود الصورة المشفر (Base64) لشعار لآفار الحقيقي
+with open("/home/ubuntu/final_logo_b64.txt", "r") as f:
+    LOGO_BASE64 = f.read().strip()
 
+# دالة لعرض الشعار
 def display_logo():
-    # استخدام كود Base64 المدمج لضمان ظهور الشعار الحقيقي
-    st.sidebar.markdown(
-        f'<div style="text-align: center;"><img src="data:image/jpeg;base64,{LOGO_B64}" style="width: 100%; max-width: 180px; margin-bottom: 20px; border-radius: 10px;"></div>',
-        unsafe_allow_html=True
-    )
+    if LOGO_BASE64:
+        st.sidebar.markdown(
+            f'<div style="text-align: center;"><img src="data:image/jpeg;base64,{LOGO_BASE64}" style="width: 100%; max-width: 200px; margin-bottom: 20px;"></div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.sidebar.markdown("### 🏢 لآفار للمنظفات")
 
-# --- القائمة الجانبية (عرض الشعار الحقيقي) ---
+# --- القائمة الجانبية (عرض الشعار) ---
 with st.sidebar:
     display_logo()
     st.divider()
@@ -148,6 +152,11 @@ if page == "واجهة المندوب":
 # --- واجهة المحاسب ---
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
+    
+    # إضافة زر نظام دفترة
+    st.link_button("📊 الانتقال إلى نظام دفترة", "https://xhi.daftra.com/", type="primary", use_container_width=True )
+    st.divider()
+    
     pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
     if not pending.empty:
         for _, row in pending.iterrows():
