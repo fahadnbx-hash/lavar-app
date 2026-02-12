@@ -1,72 +1,54 @@
 import streamlit as st
 import pandas as pd
-from database import init_db, get_orders, add_order, update_order_status, get_stock, upload_to_github, delete_order, update_stock_quantity, add_visit, get_visits, delete_visit
+from database import init_db, get_orders, add_order, update_order_status, get_stock, update_stock_quantity, add_visit, get_visits, delete_visit, delete_order, upload_to_github
 from datetime import datetime, date, timedelta
 import plotly.express as px
 import io
 import urllib.parse
 
-# 1. إعداد الصفحة وتثبيت الجلسة
-st.set_page_config(page_title="نظام لآفار للأعمال", layout="wide", initial_sidebar_state="expanded")
+# إعداد الصفحة
+st.set_page_config(page_title="نظام لآفار للأعمال", layout="wide")
 init_db()
 
-# الثوابت التشغيلية
+# الثوابت
 UNIT_COST, LEAD_TIME_DAYS, UNITS_PER_CARTON = 5.0, 9, 6
 
-# 2. تحسينات الواجهة (CSS) للمحاذاة والجمالية
+# تحسينات الواجهة
 st.markdown("""
     <style>
     .stApp { text-align: right; direction: rtl; }
-    .stMetric { text-align: right; }
-    .stMetric label { font-size: 0.75rem !important; color: #666; }
-    .stMetric div { font-size: 1.1rem !important; font-weight: bold; }
-    div[data-testid="stExpander"] { text-align: right; }
-    .stTable { direction: rtl; border: 1px solid #eee; }
-    .stDataFrame { direction: rtl; }
-    .stButton button { width: 100%; }
-    th { text-align: right !important; background-color: #f1f3f4; }
-    .main-title { color: #2E7D32; text-align: center; margin-bottom: 20px; }
     [data-testid="stSidebar"] { text-align: left !important; direction: ltr !important; }
     [data-testid="stSidebar"] * { text-align: right !important; direction: rtl !important; }
-    .recommendation-box { border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #f9f9f9; margin-bottom: 10px; }
+    .stMetric { text-align: right; }
+    .stMetric label { font-size: 0.7rem !important; }
+    .stMetric div { font-size: 1rem !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. نظام استمرارية تسجيل الدخول
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
+# استمرارية الجلسة
+if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
-    st.markdown("<h1 class='main-title'>نظام لآفار للأعمال</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>نظام لآفار للأعمال</h1>", unsafe_allow_html=True)
     with st.container(border=True):
-        st.subheader("🔐 تسجيل الدخول")
-        user = st.text_input("اسم المستخدم")
-        password = st.text_input("كلمة المرور", type="password")
+        u = st.text_input("اسم المستخدم")
+        p = st.text_input("كلمة المرور", type="password")
         if st.button("دخول للنظام", use_container_width=True):
-            if user == "admin" and password == "lavar2026":
-                st.session_state.logged_in, st.session_state.role, st.session_state.user_name = True, "admin", "المدير العام"
+            if (u == "admin" and p == "lavar2026") or (u == "sales" and p == "lavar_sales") or (u == "acc" and p == "lavar_acc"):
+                st.session_state.logged_in, st.session_state.role, st.session_state.user_name = True, u, "المستخدم"
                 st.rerun()
-            elif user == "acc" and password == "lavar_acc":
-                st.session_state.logged_in, st.session_state.role, st.session_state.user_name = True, "accountant", "المحاسب"
-                st.rerun()
-            elif user == "sales" and password == "lavar_sales":
-                st.session_state.logged_in, st.session_state.role, st.session_state.user_name = True, "sales", "المندوب"
-                st.rerun()
-            else: st.error("❌ بيانات الدخول غير صحيحة")
+            else: st.error("خطأ في البيانات")
     st.stop()
 
-# 4. القائمة الجانبية
+# القائمة الجانبية
 with st.sidebar:
-    st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🏢 لآفار للمنظفات</h2>", unsafe_allow_html=True)
-    st.divider()
-    st.markdown(f"### 👤 {st.session_state.user_name}")
-    pages = ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"] if st.session_state.role == "admin" else \
-            ["واجهة المحاسب"] if st.session_state.role == "accountant" else ["واجهة المندوب"]
-    page = st.sidebar.radio("📌 الانتقال إلى:", pages)
-    st.divider()
-    if st.sidebar.button("🚪 تسجيل الخروج", use_container_width=True):
+    st.markdown("### 🏢 لآفار للمنظفات")
+    st.write(f"👤 مرحباً: {st.session_state.user_name}")
+    if st.button("🚪 تسجيل الخروج"):
         st.session_state.logged_in = False
         st.rerun()
+    pages = ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"]
+    page = st.radio("📌 الانتقال إلى:", pages)
 
 # جلب البيانات
 orders, visits, stock_df = get_orders(), get_visits(), get_stock()
@@ -75,244 +57,126 @@ current_stock = stock_df.iloc[0]['Quantity'] if not stock_df.empty else 0
 # --- واجهة المندوب ---
 if page == "واجهة المندوب":
     st.header("📋 واجهة المندوب")
-    t1, t2, t3 = st.tabs(["🛒 إدارة الطلبات", "📍 سجل الزيارات الميدانية", "🧮 حاسبة الكراتين"])
+    t1, t2, t3 = st.tabs(["🛒 إدارة الطلبات", "📍 سجل الزيارات", "🧮 الحاسبة"])
     
     with t1:
-        st.subheader("➕ إنشاء طلب جديد")
         with st.container(border=True):
             c1, c2 = st.columns(2)
             with c1:
                 name = st.text_input("اسم العميل")
-                cr = st.text_input("رقم السجل التجاري")
+                cr = st.text_input("رقم السجل")
                 tax = st.text_input("الرقم الضريبي")
-                price = st.number_input("سعر العلبة (الافتراضي 11)", value=11.0)
+                price = st.number_input("سعر العلبة", value=11.0)
             with c2:
-                days = st.number_input("أيام الاستحقاق (الافتراضي 30)", value=30)
-                qty = st.number_input("الكمية بالعلبة", min_value=1, value=1)
-                phone = st.text_input("رقم الجوال")
+                days = st.number_input("أيام الاستحقاق", value=30)
+                qty = st.number_input("الكمية", min_value=1, value=1)
+                phone = st.text_input("الجوال")
                 addr = st.text_input("العنوان")
-            if st.button("تقديم الطلب 🚀", use_container_width=True):
-                if name and qty:
-                    add_order(name, cr, tax, addr, phone, "صابون لآفار 3 لتر", qty, days, price)
-                    st.success("✅ تم تقديم الطلب بنجاح!"); st.rerun()
-                else: st.error("يرجى إدخال اسم العميل والكمية")
+            if st.button("تقديم الطلب 🚀"):
+                add_order(name, cr, tax, addr, phone, "صابون لآفار 3 لتر", qty, days, price)
+                st.success("تم التقديم!"); st.rerun()
         
-        st.divider()
-        st.subheader("🚀 الطلبات الحالية (بانتظار الإرسال للمحاسب)")
-        with st.container(border=True):
-            h1, h2, h3, h4, h5 = st.columns([3, 1, 1, 1.5, 2.5])
-            h1.write("**اسم العميل**"); h2.write("**الكمية**"); h3.write("**السعر**"); h4.write("**الإجمالي**"); h5.write("**الإجراء**")
-            st.divider()
-            drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
-            if not drafts.empty:
-                for i, r in drafts.iterrows():
-                    col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1.5, 2.5])
-                    col1.write(r['Customer Name'])
-                    col2.write(str(int(r['Quantity'])))
-                    col3.write(str(r['Unit Price']))
-                    col4.write(str(r['Total Amount']))
-                    b1, b2 = col5.columns(2)
-                    if b1.button("إرسال 📤", key=f"snd_{r['Order ID']}"):
-                        update_order_status(r['Order ID'], 'Pending'); st.rerun()
-                    if b2.button("حذف 🗑️", key=f"del_{r['Order ID']}"):
-                        delete_order(r['Order ID']); st.rerun()
-            else: st.info("ℹ️ لا توجد طلبات حالياً بانتظار الإرسال.")
-
-        st.divider()
-        st.subheader("✅ الفواتير المعتمدة للعملاء")
-        invoiced = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
-        if not invoiced.empty:
-            for i, r in invoiced.iterrows():
+        st.subheader("🚀 الطلبات الحالية")
+        drafts = orders[orders['Status'] == 'Draft']
+        if not drafts.empty:
+            for i, r in drafts.iterrows():
                 with st.container(border=True):
-                    c_i1, c_i2, c_i3 = st.columns([4, 2, 2])
-                    c_i1.write(f"**العميل:** {r['Customer Name']} | **الكمية:** {int(r['Quantity'])} | **الإجمالي:** {r['Total Amount']} ريال")
+                    col1, col2, col3, col4 = st.columns([4, 2, 1, 1])
+                    col1.write(f"**{r['Customer Name']}** | الكمية: {int(r['Quantity'])}")
+                    col2.write(f"الإجمالي: {r['Total Amount']} ريال")
+                    if col3.button("📤", key=f"s_{r['Order ID']}"):
+                        update_order_status(r['Order ID'], 'Pending'); st.rerun()
+                    if col4.button("🗑️", key=f"d_{r['Order ID']}"):
+                        delete_order(r['Order ID']); st.rerun()
+        else: st.info("لا توجد طلبات.")
+
+        st.subheader("✅ الفواتير المعتمدة")
+        inv = orders[orders['Status'] == 'Invoiced']
+        if not inv.empty:
+            for i, r in inv.iterrows():
+                with st.container(border=True):
+                    ci1, ci2, ci3 = st.columns([4, 2, 2])
+                    ci1.write(f"**{r['Customer Name']}** | {int(r['Quantity'])} علبة")
                     if r['Invoice URL']:
-                        c_i2.link_button("📄 عرض الفاتورة", r['Invoice URL'], use_container_width=True)
-                        msg = urllib.parse.quote(f"مرحباً {r['Customer Name']}\\nإليك فاتورة طلبك من لآفار للمنظفات:\\n{r['Invoice URL']}")
-                        wa_url = f"https://wa.me/{r['Phone']}?text={msg}"
-                        c_i3.link_button("💬 واتساب", wa_url, use_container_width=True )
-        else: st.info("ℹ️ لا توجد فواتير معتمدة حالياً.")
+                        ci2.link_button("📄 الفاتورة", r['Invoice URL'])
+                        msg = urllib.parse.quote(f"فاتورتك من لآفار:\n{r['Invoice URL']}")
+                        ci3.link_button("💬 واتساب", f"https://wa.me/{r['Phone']}?text={msg}" )
+        else: st.info("لا توجد فواتير.")
 
     with t2:
-        st.subheader("📍 تسجيل زيارة ميدانية")
-        with st.form("v_form"):
+        with st.form("v"):
             c1, c2 = st.columns(2)
-            with c1:
-                v_cust = st.text_input("اسم العميل المزار")
-                v_type = st.selectbox("نوع الزيارة", ["دورية", "عميل جديد", "تحصيل", "شكوى"])
-            with c2:
-                p_qty = st.number_input("الكمية المتوقعة (علبة)", min_value=0, value=0)
-                p_date = st.date_input("التاريخ المتوقع للطلب", value=date.today() + timedelta(days=7))
-            if st.form_submit_button("💾 حفظ الزيارة الميدانية", use_container_width=True):
-                add_visit(st.session_state.user_name, v_cust, v_type, p_qty, str(p_date), "")
-                st.success("✅ تم تسجيل الزيارة بنجاح!"); st.rerun()
-        
-        st.divider()
-        st.subheader("📜 سجل زياراتي الميدانية")
-        my_visits = visits[visits['Salesman'] == st.session_state.user_name] if not visits.empty else pd.DataFrame()
-        if not my_visits.empty:
-            st.dataframe(my_visits, use_container_width=True, hide_index=True)
-        else: st.info("ℹ️ لم يتم تسجيل أي زيارات بعد.")
+            cust = c1.text_input("اسم العميل")
+            p_qty = c2.number_input("الكمية المتوقعة", value=0)
+            p_date = c2.date_input("التاريخ المتوقع")
+            if st.form_submit_button("حفظ الزيارة"):
+                add_visit(st.session_state.user_name, cust, "دورية", p_qty, str(p_date), "")
+                st.success("تم الحفظ!"); st.rerun()
+        st.dataframe(visits[visits['Salesman'] == st.session_state.user_name], use_container_width=True)
 
     with t3:
-        st.subheader("🧮 حاسبة التحويل السريع")
-        with st.container(border=True):
-            cc1, cc2 = st.columns(2)
-            with cc1:
-                c_in = st.number_input("عدد الكراتين", min_value=0, value=0, key="c_in")
-                st.info(f"💡 تعادل: **{int(c_in * UNITS_PER_CARTON)}** علبة")
-            with cc2:
-                u_in = st.number_input("عدد العلب", min_value=0, value=0, key="u_in")
-                st.info(f"💡 تعادل: **{u_in / UNITS_PER_CARTON:.2f}** كرتون")
+        c_in = st.number_input("عدد الكراتين", value=0)
+        st.info(f"💡 تعادل: {int(c_in * UNITS_PER_CARTON)} علبة")
 
 # --- واجهة المحاسب ---
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
-    st.subheader("⏳ طلبات بانتظار إصدار الفاتورة")
-    with st.container(border=True):
-        h1, h2, h3, h4 = st.columns([3, 1.5, 2, 4.5])
-        h1.write("**اسم العميل**"); h2.write("**الكمية**"); h3.write("**الإجمالي**"); h4.write("**الإجراء**")
-        st.divider()
-        pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
-        if not pending.empty:
-            for _, r in pending.iterrows():
-                cp1, cp2, cp3, cp4 = st.columns([3, 1.5, 2, 4.5])
-                cp1.write(r['Customer Name'])
-                cp2.write(str(int(r['Quantity'])))
-                cp3.write(f"{r['Total Amount']} ريال")
-                with cp4:
-                    c_file, c_btn, c_del = st.columns([2, 1, 1])
-                    pdf = c_file.file_uploader("رفع PDF", type=['pdf'], key=f"pdf_{r['Order ID']}", label_visibility="collapsed")
-                    if pdf and c_btn.button("✅", key=f"btn_{r['Order ID']}"):
-                        update_stock_quantity(r['Product'], current_stock - r['Quantity'])
-                        update_order_status(r['Order ID'], 'Invoiced', upload_to_github(pdf.getvalue(), f"inv_{r['Order ID']}.pdf"))
-                        st.success("تم الاعتماد!"); st.rerun()
-                    if c_del.button("🗑️", key=f"acc_del_{r['Order ID']}"):
-                        delete_order(r['Order ID']); st.rerun()
-        else: st.info("ℹ️ لا توجد طلبات معلقة حالياً.")
-
+    pending = orders[orders['Status'] == 'Pending']
+    if not pending.empty:
+        for i, r in pending.iterrows():
+            with st.container(border=True):
+                cp1, cp2, cp3 = st.columns([4, 3, 1])
+                cp1.write(f"**{r['Customer Name']}** | {int(r['Quantity'])} علبة | {r['Total Amount']} ريال")
+                pdf = cp2.file_uploader("رفع الفاتورة", type=['pdf'], key=f"p_{r['Order ID']}")
+                if pdf and st.button("اعتماد ✅", key=f"b_{r['Order ID']}"):
+                    update_stock_quantity(r['Product'], current_stock - r['Quantity'])
+                    update_order_status(r['Order ID'], 'Invoiced', upload_to_github(pdf.getvalue(), f"inv_{r['Order ID']}.pdf"))
+                    st.success("تم!"); st.rerun()
+                if cp3.button("🗑️", key=f"ad_{r['Order ID']}"):
+                    delete_order(r['Order ID']); st.rerun()
+    else: st.info("لا توجد طلبات معلقة.")
+    
     st.divider()
-    st.subheader("📜 سجل الفواتير المعتمدة")
-    invoiced_all = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
-    if not invoiced_all.empty:
-        st.dataframe(invoiced_all, use_container_width=True, hide_index=True)
-        try:
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                invoiced_all.to_excel(writer, index=False)
-            st.download_button("📥 تحميل السجل كملف Excel", output.getvalue(), "invoices.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        except: st.warning("⚠️ ميزة تصدير الإكسل قيد التحديث.")
-    else: st.info("ℹ️ لا توجد فواتير معتمدة.")
-
-    st.markdown("  ", unsafe_allow_html=True)
-    st.columns([5, 1])[1].link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="primary" )
+    st.columns([5, 1])[1].link_button("📊 دفترة", "https://xhi.daftra.com/", type="primary" )
 
 # --- واجهة الإدارة ---
 elif page == "واجهة الإدارة الذكية":
-    st.header("📊 مركز القيادة والتحكم")
-    
-    invoiced_adm = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
-    sales_total = invoiced_adm['Total Amount'].sum() if not invoiced_adm.empty else 0
-    potential_qty = visits['Potential Qty'].sum() if not visits.empty else 0
-    
-    st.markdown("### 📈 ملخص الأداء العام")
-    st.markdown("##### **الأرقام الفعلية**")
-    f1, f2, f3, f4 = st.columns(4)
+    st.header("📊 مركز القيادة")
+    f1, f2, f3 = st.columns(3)
     f1.metric("📦 المخزون", f"{int(current_stock)} علبة")
-    f2.metric("💰 المبيعات", f"{sales_total:,.0f} ريال")
-    f3.metric("📄 الفواتير", len(invoiced_adm))
-    f4.metric("🚚 الكمية المباعة", f"{int(invoiced_adm['Quantity'].sum()) if not invoiced_adm.empty else 0}")
+    f2.metric("💰 المبيعات", f"{orders[orders['Status']=='Invoiced']['Total Amount'].sum():,.0f} ريال")
+    f3.metric("🔮 المتوقع", f"{visits['Potential Qty'].sum():,.0f} علبة")
 
-    st.markdown("##### **الأرقام المتوقعة**")
-    e1, e2, e3, e4 = st.columns(4)
-    e1.metric("🔮 طلبات متوقعة", f"{int(potential_qty)} علبة")
-    e2.metric("💵 قيمة متوقعة", f"{potential_qty * 11.0:,.0f} ريال")
-    e3.metric("🏭 تكلفة الإنتاج", f"{potential_qty * UNIT_COST:,.0f} ريال")
-    e4.metric("📍 زيارات الميدان", len(visits))
-
-    t_a, t_b, t_c, t_d = st.tabs(["🧠 التخطيط والتوصيات", "💰 السيولة والمبيعات", "📦 إدارة المخزون", "📍 نشاط الميدان"])
+    t_a, t_b, t_c, t_d = st.tabs(["🧠 التخطيط", "💰 السيولة", "📦 المخزون", "📍 الميدان"])
     
     with t_a:
-        st.subheader("📋 التوصيات الإدارية")
-        with st.container(border=True):
-            if current_stock < 1000: st.warning("⚠️ تنبيه: المخزون تحت حد الأمان (1000 علبة).")
-            elif potential_qty > current_stock: st.error("⚠️ تنبيه: الطلب المتوقع أكبر من المخزون المتوفر.")
-            else: st.success("✅ وضع المخزون والطلب مستقر حالياً.")
-
-        st.subheader("📅 تكلفة الإنتاج الأسبوعية المتوقعة")
+        st.subheader("🗓️ الإنتاج المتوقع")
         if not visits.empty:
-            v_plot = visits.copy()
-            v_plot['Date'] = pd.to_datetime(v_plot['Date'])
-            v_plot['Week'] = v_plot['Date'].dt.to_period('W').apply(lambda r: r.start_time)
-            w_data = v_plot.groupby('Week')['Potential Qty'].sum().reset_index()
-            w_data['Cost'] = w_data['Potential Qty'] * UNIT_COST
-            w_data['Date_Str'] = w_data['Week'].dt.strftime('%Y-%m-%d')
-            st.plotly_chart(px.bar(w_data, x='Date_Str', y='Cost', title="تكلفة الإنتاج حسب الأسبوع", labels={'Date_Str': 'تاريخ بداية الأسبوع', 'Cost': 'التكلفة (ريال)'}), use_container_width=True)
-        else: st.info("📊 سيظهر الرسم البياني هنا عند توفر بيانات.")
-
-        st.subheader("🗓️ جدول الإنتاج المقترح")
-        if not visits.empty:
-            v_plot = visits.copy()
-            v_plot['Date'] = pd.to_datetime(v_plot['Date'])
-            v_plot['Month'] = v_plot['Date'].dt.to_period('M').astype(str)
-            m_data = v_plot.groupby('Month')['Potential Qty'].sum().reset_index()
-            m_data['Production'] = m_data['Potential Qty'].apply(lambda x: int(max(0, x - current_stock)))
-            st.table(m_data.rename(columns={'Month': 'الشهر', 'Potential Qty': 'الطلب المتوقع', 'Production': 'الإنتاج المطلوب'}))
-        else: st.info("ℹ️ لا توجد بيانات إنتاج مقترحة حالياً.")
+            v = visits.copy(); v['Date'] = pd.to_datetime(v['Date'])
+            v['Week'] = v['Date'].dt.to_period('W').apply(lambda r: r.start_time.strftime('%Y-%m-%d'))
+            st.plotly_chart(px.bar(v.groupby('Week')['Potential Qty'].sum().reset_index(), x='Week', y='Potential Qty', title="الطلب الأسبوعي"), use_container_width=True)
+        else: st.info("لا توجد بيانات.")
 
     with t_b:
-        st.subheader("💰 تحليل السيولة والمبيعات")
-        if not invoiced_adm.empty:
-            st.markdown("##### **📅 التدفقات النقدية الداخلة (حسب تاريخ الاستحقاق)**")
-            invoiced_adm['Due Date'] = pd.to_datetime(invoiced_adm['Due Date'])
-            invoiced_adm['Month'] = invoiced_adm['Due Date'].dt.to_period('M').astype(str)
-            cash_flow = invoiced_adm.groupby('Month')['Total Amount'].sum().reset_index()
-            st.plotly_chart(px.line(cash_flow, x='Month', y='Total Amount', title="التدفق النقدي المتوقع"), use_container_width=True)
-            
-            st.markdown("##### **📄 تفاصيل فواتير الاستحقاق**")
-            st.table(invoiced_adm[['Customer Name', 'Quantity', 'Total Amount', 'Due Date']].rename(columns={'Customer Name': 'العميل', 'Quantity': 'الكمية', 'Total Amount': 'القيمة', 'Due Date': 'تاريخ الاستحقاق'}))
-            
-            st.divider()
-            st.markdown("##### **📈 ملخص المبيعات**")
-            today = datetime.now()
-            last_week = today - timedelta(days=7)
-            w_sales = invoiced_adm[pd.to_datetime(invoiced_adm['Order Date']) >= last_week]['Quantity'].sum()
-            m_sales = invoiced_adm[pd.to_datetime(invoiced_adm['Order Date']).dt.month == today.month]['Quantity'].sum()
-            y_sales = invoiced_adm['Quantity'].sum()
-            
-            c_s1, c_s2, c_s3 = st.columns(3)
-            c_s1.metric("آخر أسبوع", f"{int(w_sales)} علبة")
-            c_s2.metric("هذا الشهر", f"{int(m_sales)} علبة")
-            c_s3.metric("إجمالي السنة", f"{int(y_sales)} علبة")
-        
-        st.divider()
-        st.markdown("##### **🎯 مبيعات المستهدف**")
-        target_val = st.number_input("أدخل المبيعات المستهدفة (علبة)", value=5000)
-        actual_val = invoiced_adm['Quantity'].sum() if not invoiced_adm.empty else 0
-        percent = (actual_val/target_val*100) if target_val > 0 else 0
-        st.write(f"📊 نسبة تحقيق المستهدف: **{percent:.1f}%** ({int(actual_val)} من {target_val} علبة)")
-        st.progress(min(actual_val/target_val, 1.0))
+        st.subheader("🎯 المستهدف")
+        target = st.number_input("المستهدف", value=5000)
+        actual = orders[orders['Status']=='Invoiced']['Quantity'].sum()
+        st.progress(min(actual/target, 1.0))
+        st.write(f"نسبة الإنجاز: {(actual/target*100):.1f}%")
 
     with t_c:
         st.subheader("📦 إدارة المخزون")
-        st.metric("المخزون الحالي", f"{int(current_stock)} علبة")
-        new_q = st.number_input("تعديل كمية المخزون يدوياً", value=int(current_stock))
-        if st.button("تحديث الكمية"):
-            update_stock_quantity("صابون لآفار 3 لتر", new_q); st.success("✅ تم التحديث!"); st.rerun()
+        new_q = st.number_input("تعديل المخزون", value=int(current_stock))
+        if st.button("تحديث"):
+            update_stock_quantity("صابون لآفار 3 لتر", new_q); st.success("تم!"); st.rerun()
 
     with t_d:
-        st.subheader("📍 إدارة نشاط الميدان")
-        with st.container(border=True):
-            h1, h2, h3, h4, h5 = st.columns([1.5, 2, 1.5, 2, 1])
-            h1.write("**المندوب**"); h2.write("**العميل**"); h3.write("**التاريخ**"); h4.write("**الكمية**"); h5.write("**الإجراء**")
-            st.divider()
-            if not visits.empty:
-                for i, r in visits.iterrows():
-                    cv1, cv2, cv3, cv4, cv5 = st.columns([1.5, 2, 1.5, 2, 1])
-                    cv1.write(r['Salesman'])
-                    cv2.write(r['Customer Name'])
-                    cv3.write(r['Date'])
-                    cv4.write(f"{int(r['Potential Qty'])} علبة")
-                    if cv5.button("حذف 🗑️", key=f"adm_del_{i}"):
+        st.subheader("📍 نشاط الميدان")
+        if not visits.empty:
+            for i, r in visits.iterrows():
+                with st.container(border=True):
+                    cv1, cv2, cv3 = st.columns([6, 1, 1])
+                    cv1.write(f"**{r['Salesman']}** -> {r['Customer Name']} | الكمية: {int(r['Potential Qty'])}")
+                    if cv3.button("🗑️", key=f"dv_{i}"):
                         delete_visit(i); st.rerun()
-            else: st.info("ℹ️ لا توجد سجلات حالياً.")
+        else: st.info("السجل فارغ.")
