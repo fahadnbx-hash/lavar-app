@@ -6,47 +6,52 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # إعدادات الصفحة
-st.set_page_config(page_title="لاڤار للمنظفات - نظام الإدارة", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="لاڤار للمنظفات - نظام الإدارة", layout="wide", initial_sidebar_state="auto")
 
-# حقن CSS لإصلاح مشاكل الجوال والـ RTL بشكل جذري
+# حقن CSS لإصلاح مشاكل الجوال والـ RTL بشكل جذري وبسيط
 st.markdown("""
     <style>
     /* التنسيقات الأساسية للـ RTL */
     .stApp { text-align: right; direction: rtl; }
     [data-testid="stSidebar"] { text-align: right; direction: rtl; }
     
-    /* إصلاح تداخل النصوص في القائمة الجانبية والجوال */
-    [data-testid="stSidebar"] * {
-        white-space: normal !important;
-        word-wrap: break-word !important;
-        overflow-wrap: break-word !important;
-    }
-    
-    /* تنسيق القائمة الجانبية في الجوال ليكون مرناً */
+    /* إجبار القائمة الجانبية على عدم التداخل مع المحتوى في الجوال */
     @media (max-width: 768px) {
         [data-testid="stSidebar"] {
-            width: 250px !important;
-            min-width: 250px !important;
+            position: fixed;
+            z-index: 999999;
         }
-        .stApp { padding: 0.5rem !important; }
-        .main-title { font-size: 1.5rem !important; }
+        /* تصغير العناوين في الجوال لتجنب التداخل */
+        h1 { font-size: 1.5rem !important; }
+        h2 { font-size: 1.2rem !important; }
+        h3 { font-size: 1rem !important; }
+        
+        /* جعل التبويبات (Tabs) أكثر مرونة */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 5px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            padding: 8px 12px !important;
+            font-size: 0.8rem !important;
+        }
     }
-
-    /* تحسين مظهر البطاقات والمقاييس */
+    
+    /* ضمان التفاف النصوص داخل القائمة الجانبية */
+    [data-testid="stSidebar"] .stText, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+    
+    /* تحسين مظهر البطاقات */
     .metric-card {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        border-radius: 12px;
-        padding: 20px;
-        margin: 10px 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 10px;
+        border: 1px solid #eee;
         text-align: center;
     }
-    .metric-value { font-size: 2rem; font-weight: bold; color: #2E7D32; }
-    .metric-label { font-size: 1rem; color: #666; }
-    
-    /* ضبط الجداول لتكون متجاوبة */
-    .stTable, .stDataFrame { width: 100%; overflow-x: auto; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -55,7 +60,7 @@ if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 def login():
-    st.title("🔐 تسجيل الدخول - شركة لاڤار")
+    st.title("🔐 تسجيل الدخول")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         username = st.text_input("اسم المستخدم")
@@ -74,89 +79,64 @@ def login():
                 st.session_state.role = "acc"
                 st.rerun()
             else:
-                st.error("خطأ في اسم المستخدم أو كلمة المرور")
+                st.error("خطأ في البيانات")
 
 if not st.session_state.logged_in:
     login()
     st.stop()
 
-# القائمة الجانبية المشتركة
+# القائمة الجانبية
 with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/factory.png", width=80)
+    st.image("https://img.icons8.com/fluency/96/factory.png", width=60)
     st.title("لاڤار للمنظفات")
     st.write(f"👤 مرحباً: **{st.session_state.role}**")
     
-    # روابط التنقل بناءً على الصلاحيات
-    if st.session_state.role == "admin":
-        st.divider()
-        st.subheader("🛠️ الإدارة الذكية")
-        if st.button("🚀 مركز القيادة", use_container_width=True): st.session_state.page = "dashboard"
-        if st.button("📦 إدارة البيانات", use_container_width=True): st.session_state.page = "data_mgmt"
-    
-    st.divider()
-    if st.button("🚪 تسجيل الخروج", use_container_width=True):
+    if st.button("🚪 خروج", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
 
-# توجيه المستخدم حسب الصلاحيات
+# واجهة المندوب
 if st.session_state.role == "sales":
     st.title("📋 واجهة المندوب")
-    tab1, tab2 = st.tabs(["🛒 إدارة الطلبات", "📍 سجل الزيارات الميدانية"])
+    tab1, tab2 = st.tabs(["🛒 الطلبات", "📍 الزيارات"])
     
     with tab1:
-        st.subheader("➕ إنشاء طلب جديد")
+        st.subheader("➕ طلب جديد")
         with st.form("order_form", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            client_name = c1.text_input("اسم العميل")
-            cr_number = c2.text_input("رقم السجل التجاري")
-            vat_number = c1.text_input("الرقم الضريبي")
-            qty = c2.number_input("الكمية (علبة)", min_value=1, value=100)
-            submit = st.form_submit_button("حفظ الطلب")
-            if submit:
+            client_name = st.text_input("اسم العميل")
+            cr_number = st.text_input("السجل التجاري")
+            vat_number = st.text_input("الرقم الضريبي")
+            qty = st.number_input("الكمية", min_value=1, value=100)
+            if st.form_submit_button("حفظ الطلب", use_container_width=True):
                 if client_name:
                     db.add_order(client_name, cr_number, vat_number, qty, 11)
-                    st.success(f"تم تسجيل طلب لـ {client_name} بنجاح")
+                    st.success("تم الحفظ")
                 else:
-                    st.error("يرجى إدخال اسم العميل")
+                    st.error("أدخل الاسم")
 
     with tab2:
-        st.subheader("📍 تسجيل زيارة ميدانية")
+        st.subheader("📍 تسجيل زيارة")
         with st.form("visit_form", clear_on_submit=True):
-            v_client = st.text_input("اسم العميل المزوار")
-            v_notes = st.text_area("ملاحظات الزيارة")
-            v_conf = st.slider("مستوى ثقة المندوب في الطلب القادم (%)", 0, 100, 50)
-            if st.form_submit_button("حفظ الزيارة"):
+            v_client = st.text_input("اسم العميل")
+            v_notes = st.text_area("ملاحظات")
+            v_conf = st.slider("الثقة (%)", 0, 100, 50)
+            if st.form_submit_button("حفظ الزيارة", use_container_width=True):
                 db.add_visit(v_client, "ميدانية", v_notes, v_conf)
-                st.success("تم تسجيل الزيارة بنجاح")
+                st.success("تم التسجيل")
 
+# واجهة المحاسب
 elif st.session_state.role == "acc":
     st.title("💰 واجهة المحاسب")
     orders = db.get_orders()
-    if not orders.empty:
-        pending = orders[orders['status'] == 'قيد الانتظار']
-        st.subheader(f"📦 الطلبات المعلقة ({len(pending)})")
-        st.dataframe(pending, use_container_width=True)
-        # منطق الموافقة هنا
-    else:
-        st.info("لا توجد طلبات مسجلة حالياً")
+    st.dataframe(orders, use_container_width=True)
 
+# واجهة المدير
 elif st.session_state.role == "admin":
-    st.title("🚀 مركز القيادة الذكي")
-    
-    # 1. ملخص الأداء (Row 1)
-    c1, c2, c3 = st.columns(3)
-    target = db.get_annual_target()
-    actual_sales = db.get_orders()['total_price'].sum() if not db.get_orders().empty else 0
-    
+    st.title("🚀 لوحة التحكم")
+    st.info("مرحباً بك في لوحة الإدارة")
+    # ملخص سريع
+    c1, c2 = st.columns(2)
     with c1:
-        st.markdown(f'<div class="metric-card"><div class="metric-label">الهدف السنوي</div><div class="metric-value">{target:,.0f}</div></div>', unsafe_allow_html=True)
+        st.metric("إجمالي المبيعات", f"{db.get_orders()['total_price'].sum() if not db.get_orders().empty else 0:,.0f} ريال")
     with c2:
-        st.markdown(f'<div class="metric-card"><div class="metric-label">المبيعات الفعلية</div><div class="metric-value">{actual_sales:,.0f}</div></div>', unsafe_allow_html=True)
-    with c3:
-        progress = (actual_sales / target * 100) if target > 0 else 0
-        st.markdown(f'<div class="metric-card"><div class="metric-label">نسبة الإنجاز</div><div class="metric-value">{progress:.1f}%</div></div>', unsafe_allow_html=True)
-
-    st.divider()
-    st.subheader("📈 التخطيط والإنتاج الذكي")
-    # منطق التخطيط والإنتاج هنا
-    st.info("تم تفعيل نظام التنبؤ الذكي بناءً على ثقة المناديب")
+        st.metric("عدد الزيارات", len(db.get_visits()) if not db.get_visits().empty else 0)
