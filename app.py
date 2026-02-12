@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from database import init_db, get_orders, add_order, update_order_status, get_stock, update_stock_quantity, add_visit, get_visits, delete_visit, delete_order, upload_to_github, get_annual_target, update_annual_target
+from database import init_db, get_orders, add_order, update_order_status, get_stock, update_stock_quantity, add_visit, get_visits, delete_visit, delete_order, upload_to_github, get_annual_target, update_annual_target, get_master_confidence, update_master_confidence, update_visit_confidence, get_visit_confidence
 from datetime import datetime, date, timedelta
 import plotly.express as px
 import io
@@ -360,10 +360,13 @@ elif page == "واجهة الإدارة الذكية":
     with st.container(border=True):
         col_conf1, col_conf2 = st.columns([3, 1])
         with col_conf1:
+            current_master = get_master_confidence()
             master_confidence = st.slider(
                 "ضابط الإيقاع العام: اضبط هنا لتطبيق تأثير عام على جميع المؤشرات الفردية في الجدول أدناه",
-                0, 100, 100, 5, key="master_confidence_slider"
+                0, 100, current_master, 5, key="master_confidence_slider"
             )
+            if master_confidence != current_master:
+                update_master_confidence(master_confidence)
             st.session_state.master_confidence = master_confidence
         with col_conf2:
             st.metric("مؤشر الإيقاع", f"{master_confidence}%")
@@ -565,7 +568,16 @@ elif page == "واجهة الإدارة الذكية":
                 auto_conf = min(100, auto_conf)
                 
                 with cv5:
-                    conf_val = st.slider("مؤشر الثقة", 0, 100, auto_conf, key=f"conf_{i}")
+                    # قراءة قيمة الثقة من قاعدة البيانات إن وجدت
+                    saved_conf = get_visit_confidence(i)
+                    default_conf = saved_conf if saved_conf is not None else auto_conf
+                    
+                    conf_val = st.slider("مؤشر الثقة", 0, 100, default_conf, key=f"conf_{i}")
+                    
+                    # حفظ قيمة الثقة في قاعدة البيانات عند التغيير
+                    if conf_val != default_conf:
+                        update_visit_confidence(i, conf_val)
+                    
                     weighted_qty = r['Potential Qty'] * (conf_val / 100.0)
                     st.caption(f"📊 {int(weighted_qty)} علبة")
                 
