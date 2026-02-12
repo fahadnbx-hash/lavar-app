@@ -91,23 +91,12 @@ if page == "واجهة المندوب":
             if st.button("تقديم الطلب 🚀", use_container_width=True):
                 if name and qty:
                     add_order(name, cr, tax, addr, phone, "صابون لآفار 3 لتر", qty, days, price)
-                    st.success("✅ تم تقديم الطلب بنجاح!")
-                    st.rerun()
+                    st.success("✅ تم تقديم الطلب بنجاح!"); st.rerun()
                 else: st.error("يرجى إدخال اسم العميل والكمية")
         
         st.divider()
         st.subheader("🚀 الطلبات الحالية (بانتظار الإرسال للمحاسب)")
-        st.markdown("""
-            <div class='fixed-header'>
-                <div style='display: flex; justify-content: space-between;'>
-                    <span style='width: 30%;'>اسم العميل</span>
-                    <span style='width: 15%;'>الكمية</span>
-                    <span style='width: 15%;'>السعر</span>
-                    <span style='width: 20%;'>الإجمالي</span>
-                    <span style='width: 20%;'>الإجراء</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class='fixed-header'><div style='display: flex; justify-content: space-between;'><span style='width: 30%;'>اسم العميل</span><span style='width: 15%;'>الكمية</span><span style='width: 15%;'>السعر</span><span style='width: 20%;'>الإجمالي</span><span style='width: 20%;'>الإجراء</span></div></div>", unsafe_allow_html=True)
         
         drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
         if not drafts.empty:
@@ -165,16 +154,7 @@ if page == "واجهة المندوب":
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
     st.subheader("⏳ طلبات بانتظار إصدار الفاتورة")
-    st.markdown("""
-        <div class='fixed-header'>
-            <div style='display: flex; justify-content: space-between;'>
-                <span style='width: 30%;'>اسم العميل</span>
-                <span style='width: 15%;'>الكمية</span>
-                <span style='width: 20%;'>الإجمالي</span>
-                <span style='width: 35%;'>رفع الفاتورة والاعتماد</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='fixed-header'><div style='display: flex; justify-content: space-between;'><span style='width: 30%;'>اسم العميل</span><span style='width: 15%;'>الكمية</span><span style='width: 20%;'>الإجمالي</span><span style='width: 35%;'>رفع الفاتورة والاعتماد</span></div></div>", unsafe_allow_html=True)
     
     pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
     if not pending.empty:
@@ -283,17 +263,7 @@ elif page == "واجهة الإدارة الذكية":
 
     with t_d:
         st.subheader("📍 إدارة نشاط الميدان")
-        st.markdown("""
-            <div class='fixed-header'>
-                <div style='display: flex; justify-content: space-between;'>
-                    <span style='width: 20%;'>المندوب</span>
-                    <span style='width: 25%;'>العميل</span>
-                    <span style='width: 20%;'>التاريخ</span>
-                    <span style='width: 20%;'>الكمية</span>
-                    <span style='width: 15%;'>الإجراء</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class='fixed-header'><div style='display: flex; justify-content: space-between;'><span style='width: 20%;'>المندوب</span><span style='width: 25%;'>العميل</span><span style='width: 20%;'>التاريخ</span><span style='width: 20%;'>الكمية</span><span style='width: 15%;'>الإجراء</span></div></div>", unsafe_allow_html=True)
         if not visits.empty:
             for i, r in visits.iterrows():
                 with st.container(border=True):
@@ -303,6 +273,6 @@ elif page == "واجهة الإدارة الذكية":
                     cv3.write(r['Date'])
                     cv4.write(f"{int(r['Potential Qty'])} علبة")
                     if cv5.button("حذف 🗑️", key=f"adm_del_{i}"):
-                        delete_order(i) # دالة حذف افتراضية
-                        st.rerun()
+                        # ملاحظة: يتطلب حذف حقيقي من قاعدة البيانات
+                        st.warning("تم الحذف بنجاح (محاكاة)"); st.rerun()
         else: st.info("ℹ️ السجل فارغ.")
