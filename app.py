@@ -147,7 +147,7 @@ if page == "واجهة المندوب":
             p_qty = st.number_input("الكمية المتوقعة (علبة)", min_value=0, value=0)
             p_date = st.date_input("التاريخ المتوقع للطلب", value=date.today() + timedelta(days=7))
             if st.form_submit_button("💾 حفظ الزيارة الميدانية", use_container_width=True):
-                add_visit(st.session_state.user_name, v_cust, p_qty, str(p_date), "")
+                add_visit(st.session_state.user_name, v_cust, int(p_qty), str(p_date), "")
                 st.success("✅ تم تسجيل الزيارة بنجاح!"); st.rerun()
         
         st.divider()
@@ -381,6 +381,43 @@ elif page == "واجهة الإدارة الذكية":
     - نسبة التغطية: **{cash_coverage_percent:.1f}%**
     - الفجوة التمويلية: **{financing_gap:,.0f} ريال** (إن وجدت)
     """)
+    
+    st.divider()
+    
+    st.markdown("### 📋 خطة أوامر الإنتاج المقترحة (الزمنية والمالية)")
+    
+    if production_plan:
+        with st.container(border=True):
+            h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([1.5, 1.5, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2])
+            h1.write("**تاريخ الأمر**")
+            h2.write("**تاريخ التسليم**")
+            h3.write("**الكمية**")
+            h4.write("**التكلفة**")
+            h5.write("**السيولة**")
+            h6.write("**التغطية%**")
+            h7.write("**الفجوة**")
+            h8.write("**الثقة%**")
+            st.divider()
+            
+            for order in production_plan:
+                c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1.5, 1.5, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2])
+                c1.write(order['order_date'])
+                c2.write(order['delivery_date'])
+                c3.write(f"{order['quantity']} علبة")
+                c4.write(f"{order['cost']:,.0f} ر")
+                c5.write(f"{order['available_cash']:,.0f} ر")
+                
+                if order['cash_coverage'] >= 100:
+                    c6.markdown(f"<span style='color: green; font-weight: bold;'>{order['cash_coverage']:.0f}%</span>", unsafe_allow_html=True)
+                elif order['cash_coverage'] >= 50:
+                    c6.markdown(f"<span style='color: orange; font-weight: bold;'>{order['cash_coverage']:.0f}%</span>", unsafe_allow_html=True)
+                else:
+                    c6.markdown(f"<span style='color: red; font-weight: bold;'>{order['cash_coverage']:.0f}%</span>", unsafe_allow_html=True)
+                
+                c7.write(f"{order['financing_gap']:,.0f} ر")
+                c8.write(f"{order['confidence']:.0f}%")
+    else:
+        st.info("✅ لا توجد طلبات مستقبلية مسجلة أو المخزون كافي لتغطية الطلبات المتوقعة.")
     
     st.divider()
     
