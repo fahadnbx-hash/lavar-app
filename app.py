@@ -6,14 +6,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # إعداد الصفحة
-st.set_page_config(page_title="نظام لآفار للمنظفات - النسخة الاستراتيجية", layout="wide")
+st.set_page_config(page_title="نظام لآفار للمنظفات - النسخة المتكاملة", layout="wide")
 init_db()
 
 # الثوابت التشغيلية
 UNIT_COST = 5.0
 LEAD_TIME_DAYS = 9
 
-# --- القائمة الجانبية ---
+# --- القائمة الجانبية (بدون شعار كما طلبت) ---
 with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🏢 لآفار للمنظفات</h2>", unsafe_allow_html=True)
     st.divider()
@@ -93,7 +93,9 @@ if page == "واجهة المندوب":
                     with c_info:
                         st.markdown(f"### 👤 {row['Customer Name']}")
                         st.markdown(f"📦 **الكمية:** `{row['Quantity']}` علبة | 💰 **السعر:** `{row['Unit Price']:.2f}` ريال")
+                        st.markdown(f"💵 **الإجمالي المستحق:** `{row['Total Amount']:,.2f}` ريال")
                     with c_action:
+                        st.write("") 
                         c_send, c_del = st.columns(2)
                         with c_send:
                             if st.button("إرسال 📤", key=f"p_{row['Order ID']}", use_container_width=True):
@@ -102,6 +104,14 @@ if page == "واجهة المندوب":
                             if st.button("🗑️", key=f"d_{row['Order ID']}", use_container_width=True):
                                 delete_order(row['Order ID']); st.rerun()
         else: st.info("📭 لا توجد مسودات حالياً")
+
+        st.subheader("✅ فواتير معتمدة")
+        inv = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
+        if not inv.empty:
+            for _, row in inv.iterrows():
+                with st.container(border=True):
+                    st.write(f"**العميل:** {row['Customer Name']} | **المبلغ:** {row['Total Amount']} ريال")
+                    if row['Invoice URL']: st.link_button("📄 فتح الفاتورة", row['Invoice URL'])
 
     with tab2:
         st.subheader("📍 تسجيل زيارة ميدانية")
@@ -127,22 +137,22 @@ if page == "واجهة المندوب":
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
     
-    # زر دفترة صغير وباللون الأخضر
-    c_btn1, c_btn2, c_btn3 = st.columns([1, 1, 1])
-    with c_btn1:
-        st.link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="secondary", use_container_width=True )
+    # زر دفترة صغير وأخضر كما طلبت
+    c_d1, c_d2 = st.columns([1, 4])
+    with c_d1:
+        st.link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="primary", use_container_width=True )
     st.divider()
     
     pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
     if not pending.empty:
         for _, row in pending.iterrows():
             with st.container(border=True):
-                st.write(f"**طلب #{row['Order ID']}** | العميل: {row['Customer Name']} | **الكمية:** {row['Quantity']} علبة")
+                st.write(f"**طلب #{row['Order ID']}** | العميل: {row['Customer Name']} | **الكمية:** {row['Quantity']} علبة | **المبلغ:** {row['Total Amount']} ريال")
                 pdf = st.file_uploader("ارفع الفاتورة (PDF)", type=['pdf'], key=f"f_{row['Order ID']}")
-                if pdf and st.button("✅ اعتماد وخصم من المخزون", key=f"b_{row['Order ID']}", type="primary"):
-                    # خصم الكمية من المخزون
-                    new_stock_qty = current_stock - row['Quantity']
-                    update_stock_quantity(row['Product'], new_stock_qty)
+                if pdf and st.button("✅ اعتماد وخصم من المخزون", key=f"b_{row['Order ID']}", use_container_width=True):
+                    # خصم الكمية من المخزون آلياً
+                    new_q = current_stock - row['Quantity']
+                    update_stock_quantity(row['Product'], new_q)
                     # رفع الفاتورة وتحديث الحالة
                     url = upload_to_github(pdf.getvalue(), f"inv_{row['Order ID']}.pdf")
                     update_order_status(row['Order ID'], 'Invoiced', url)
@@ -151,31 +161,55 @@ elif page == "واجهة المحاسب":
 
 # --- واجهة الإدارة الذكية ---
 elif page == "واجهة الإدارة الذكية":
-    st.header("📊 مركز القيادة والتحكم")
+    st.header("📊 مركز القيادة والتحكم الاستراتيجي")
+    
+    # 1. ملخصات رقمية
     st.markdown("### 📈 ملخص الأداء العام")
     invoiced_orders = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
     total_sales_val = invoiced_orders['Total Amount'].sum() if not invoiced_orders.empty else 0
     total_sales_qty = invoiced_orders['Quantity'].sum() if not invoiced_orders.empty else 0
+    unique_customers = orders['Customer Name'].nunique() if not orders.empty else 0
     total_pot_qty = visits['Potential Qty'].sum() if not visits.empty else 0
+    pot_val = total_pot_qty * 15.0 
     
+    st.markdown("#### **الفعلي والمتوقع**")
     col_actual1, col_actual2, col_actual3, col_actual4 = st.columns(4)
     col_actual1.metric("📦 المخزون الحالي", f"{int(current_stock)} علبة")
     col_actual2.metric("💰 مبيعات محققة", f"{total_sales_val:,.0f} ريال")
     col_actual3.metric("🔮 طلبات متوقعة", f"{int(total_pot_qty)} علبة")
     col_actual4.metric("🏭 تكلفة الإنتاج", f"{total_pot_qty * UNIT_COST:,.0f} ريال")
 
-    tab_strat, tab_sales, tab_stock = st.tabs(["🧠 التخطيط والإنتاج", "💰 السيولة", "📦 المخزون"])
+    tab_strat, tab_sales, tab_stock, tab_visits = st.tabs(["🧠 التخطيط ودعم القرار", "💰 السيولة والمبيعات", "📦 إدارة المخزون", "📍 نشاط الميدان"])
     
     with tab_strat:
+        st.subheader("🤖 مستشار لآفار التنفيذي")
         conf = st.slider("🎯 نسبة الثقة في التوقعات (%)", 10, 100, 80)
+        
         v_df = visits.copy()
         if not v_df.empty:
             v_df['Potential Date'] = pd.to_datetime(v_df['Potential Date'])
             v_df['Month'] = v_df['Potential Date'].dt.to_period('M').astype(str)
+            v_df['Week'] = v_df['Potential Date'].dt.to_period('W').astype(str)
             v_df['Adj Qty'] = v_df['Potential Qty'] * (conf/100)
             monthly_demand = v_df.groupby('Month')['Adj Qty'].sum().reset_index()
-        else: monthly_demand = pd.DataFrame(columns=['Month', 'Adj Qty'])
+            weekly_prod_cost = v_df.groupby('Week')['Adj Qty'].sum().reset_index()
+            weekly_prod_cost['Cost'] = weekly_prod_cost['Adj Qty'] * UNIT_COST
+        else:
+            monthly_demand = pd.DataFrame(columns=['Month', 'Adj Qty'])
+            weekly_prod_cost = pd.DataFrame(columns=['Week', 'Cost'])
 
+        with st.container(border=True):
+            total_forecast = monthly_demand['Adj Qty'].sum() if not monthly_demand.empty else 0
+            if total_forecast > current_stock:
+                gap = total_forecast - current_stock
+                st.markdown(f"🔴 **خطر نفاد:** الطلب المتوقع ({int(total_forecast)}) أكبر من المخزون ({int(current_stock)}). الفجوة: **{int(gap)}** علبة.")
+            else: st.write("✅ الحالة التشغيلية مستقرة.")
+
+        st.subheader("📅 تكلفة الإنتاج المتوقعة أسبوعياً")
+        if not weekly_prod_cost.empty:
+            st.plotly_chart(px.bar(weekly_prod_cost, x='Week', y='Cost', title="توزيع ميزانية الإنتاج أسبوعياً", color_discrete_sequence=['#FF4B4B']), use_container_width=True)
+
+        st.subheader("🗓️ جدول الإنتاج المقترح (قاعدة 9 أيام)")
         if not monthly_demand.empty:
             mps = monthly_demand.copy()
             temp_stock = current_stock
@@ -184,19 +218,49 @@ elif page == "واجهة الإدارة الذكية":
                 needed = max(0, qty - temp_stock)
                 temp_stock = max(0, temp_stock - qty)
                 required_prod.append(needed)
+            
             mps['الإنتاج المطلوب'] = required_prod
-            mps['تاريخ البدء (9 أيام)'] = mps['Month'].apply(lambda x: (pd.to_datetime(str(x)) - timedelta(days=LEAD_TIME_DAYS)).strftime('%Y-%m-%d'))
-            st.table(mps.rename(columns={'Month': 'الشهر المستهدف', 'Adj Qty': 'الطلب المتوقع'}))
+            mps['تاريخ بدء الإنتاج'] = mps['Month'].apply(lambda x: (pd.to_datetime(str(x)) - timedelta(days=LEAD_TIME_DAYS)).strftime('%Y-%m-%d'))
+            st.table(mps[['Month', 'Adj Qty', 'الإنتاج المطلوب', 'تاريخ بدء الإنتاج']].rename(columns={'Month': 'الشهر المستهدف', 'Adj Qty': 'الطلب المتوقع'}))
+            
+            total_needed_now = mps['الإنتاج المطلوب'].sum()
+            earliest_date = mps[mps['الإنتاج المطلوب'] > 0]['تاريخ بدء الإنتاج'].min() if total_needed_now > 0 else "لا يوجد"
+            
+            if total_needed_now > 0:
+                st.info(f"💡 **التوصية:** يجب إنتاج **{int(total_needed_now)}** علبة، والبدء في **{earliest_date}**.")
+                st.markdown("#### 💰 تحليل تغطية تكلفة الإنتاج")
+                production_cost = total_needed_now * UNIT_COST
+                relevant_invoices = invoiced_orders[pd.to_datetime(invoiced_orders['Due Date']) <= pd.to_datetime(earliest_date)]
+                expected_cash_flow = relevant_invoices['Total Amount'].sum() if not relevant_invoices.empty else 0
+                st.write(f"- تكلفة الإنتاج: {production_cost:,.0f} ريال | التدفق النقدي المتوقع: {expected_cash_flow:,.0f} ريال")
+                if expected_cash_flow >= production_cost:
+                    st.success(f"✅ مغطاة بالكامل. الفائض: {expected_cash_flow - production_cost:,.0f} ريال.")
+                else:
+                    st.error(f"⚠️ عجز: تحتاج لتوفير {production_cost - expected_cash_flow:,.0f} ريال.")
 
     with tab_sales:
+        st.subheader("💰 تحليل المبيعات والسيولة")
         if not invoiced_orders.empty:
             inv = invoiced_orders.copy()
             inv['Due Date'] = pd.to_datetime(inv['Due Date'])
             inv['Month'] = inv['Due Date'].dt.to_period('M').astype(str)
-            st.plotly_chart(px.bar(inv.groupby('Month')['Total Amount'].sum().reset_index(), x='Month', y='Total Amount', title="التحصيلات الشهرية", color_discrete_sequence=['green']), use_container_width=True)
+            inv['Week'] = inv['Due Date'].dt.to_period('W').astype(str)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.plotly_chart(px.bar(inv.groupby('Month')['Total Amount'].sum().reset_index(), x='Month', y='Total Amount', title="التحصيلات الشهرية", color_discrete_sequence=['green']), use_container_width=True)
+            with c2:
+                st.plotly_chart(px.bar(inv.groupby('Week')['Total Amount'].sum().reset_index(), x='Week', y='Total Amount', title="التحصيلات الأسبوعية", color_discrete_sequence=['blue']), use_container_width=True)
 
     with tab_stock:
         st.subheader("📦 إدارة المخزون")
-        new_q = st.number_input("تعديل المخزون يدوياً", value=int(current_stock))
-        if st.button("تحديث"):
-            update_stock_quantity("صابون لآفار 3 لتر", new_q); st.rerun()
+        c1, c2 = st.columns(2)
+        with c1: st.metric("الكمية الحالية", f"{int(current_stock)} علبة")
+        with c2:
+            new_q = st.number_input("تحديث الكمية يدوياً", value=int(current_stock))
+            if st.button("حفظ التحديث"):
+                update_stock_quantity("صابون لآفار 3 لتر", new_q)
+                st.success("تم التحديث!"); st.rerun()
+
+    with tab_visits:
+        st.subheader("📍 سجل نشاط الميدان")
+        st.dataframe(visits, use_container_width=True)
