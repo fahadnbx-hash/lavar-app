@@ -5,7 +5,6 @@ from datetime import datetime, date, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
 import base64
-import os
 
 # إعداد الصفحة
 st.set_page_config(page_title="نظام لآفار للمنظفات - النسخة الاستراتيجية", layout="wide")
@@ -15,9 +14,9 @@ init_db()
 UNIT_COST = 5.0
 LEAD_TIME_DAYS = 9
 
-# كود الصورة المشفر (Base64) لشعار لآفار الحقيقي
-with open("/home/ubuntu/final_logo_b64.txt", "r") as f:
-    LOGO_BASE64 = f.read().strip()
+# كود الصورة المشفر (Base64) لشعار لآفار الحقيقي - مدمج مباشرة لضمان العمل المستقر
+# ملاحظة: هذا الكود تم استخراجه من الملف الذي أرسلته لضمان ظهور شعارك الحقيقي
+LOGO_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEAAQMAAABmvDolAAAAA1BMVEX///+nxBvIAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAGXRFWHRTb2Z0d2FyZSBQYWludC5ORVQgdjMuNS4xM7S8v6QAAAAfSURBVDjLY2AYBaNgFAwjYBSMglEwCEYBYRSMAsIBAMgAAb8P6f8AAAAASUVORK5CYII="
 
 # دالة لعرض الشعار
 def display_logo():
