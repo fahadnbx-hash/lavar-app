@@ -5,15 +5,15 @@ from datetime import datetime, date, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
 
-# إعداد الصفحة
+# 1. إعداد الصفحة
 st.set_page_config(page_title="نظام لآفار للمنظفات الذكي", layout="wide")
 init_db()
 
-# الثوابت
+# الثوابت التشغيلية
 UNIT_COST = 5.0
 LEAD_TIME_DAYS = 9
 
-# --- نظام تسجيل الدخول ---
+# 2. نظام تسجيل الدخول
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
@@ -50,13 +50,13 @@ else:
 
 page = st.sidebar.radio("📌 الانتقال إلى:", available_pages)
 
-# جلب البيانات
+# جلب البيانات العامة
 orders = get_orders()
 visits = get_visits()
 stock_df = get_stock()
 current_stock = stock_df.iloc[0]['Quantity'] if not stock_df.empty else 0
 
-# --- واجهة المندوب ---
+# 3. واجهة المندوب
 if page == "واجهة المندوب":
     st.header("📋 واجهة المندوب")
     tab1, tab2 = st.tabs(["🛒 إدارة الطلبات", "📍 سجل الزيارات الميدانية"])
@@ -73,7 +73,7 @@ if page == "واجهة المندوب":
             with c2:
                 prod = st.selectbox("📦 المنتج", ["صابون لآفار 3 لتر"])
                 qty = st.number_input("🔢 الكمية", 1, 10000, 1)
-                price = st.number_input("💰 سعر العلبة", 0.0, 1000.0, 15.0)
+                price = st.number_input("💰 سعر الوحدة", 0.0, 1000.0, 15.0)
                 days = st.number_input("⏳ أيام الاستحقاق", 0, 99, 30)
             if st.button("حفظ كمسودة 💾", use_container_width=True):
                 add_order(name, cr, tax, address, phone, prod, qty, days, price)
@@ -84,16 +84,20 @@ if page == "واجهة المندوب":
         if not drafts.empty:
             for _, row in drafts.iterrows():
                 with st.container(border=True):
-                    c_i, c_a, c_d = st.columns([3, 1, 0.5])
-                    with c_i:
-                        st.markdown(f"**العميل:** {row['Customer Name']} | **المبلغ:** {row['Total Amount']} ريال")
-                    with c_a:
-                        if st.button("إرسال للمحاسب 📤", key=f"p_{row['Order ID']}", use_container_width=True):
-                            update_order_status(row['Order ID'], 'Pending'); st.rerun()
-                    with c_d:
-                        if st.button("🗑️", key=f"d_{row['Order ID']}", use_container_width=True):
-                            delete_order(row['Order ID']); st.rerun()
-        else: st.info("📭 لا توجد مسودات")
+                    c_info, c_action = st.columns([4, 1.5])
+                    with c_info:
+                        # الملخص التفصيلي المطلوب
+                        st.markdown(f"👤 **العميل:** {row['Customer Name']}")
+                        st.markdown(f"📦 **التفاصيل:** {row['Quantity']} علبة × {row['Unit Price']:.2f} ريال | **الإجمالي:** {row['Total Amount']:,.2f} ريال")
+                    with c_action:
+                        c_send, c_del = st.columns(2)
+                        with c_send:
+                            if st.button("إرسال 📤", key=f"p_{row['Order ID']}", use_container_width=True):
+                                update_order_status(row['Order ID'], 'Pending'); st.rerun()
+                        with c_del:
+                            if st.button("🗑️", key=f"d_{row['Order ID']}", use_container_width=True):
+                                delete_order(row['Order ID']); st.rerun()
+        else: st.info("📭 لا توجد مسودات حالياً")
 
         st.subheader("✅ فواتير معتمدة")
         inv = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
@@ -123,7 +127,7 @@ if page == "واجهة المندوب":
             my_v = visits[visits['Salesman'] == st.session_state.user_name]
             st.dataframe(my_v, use_container_width=True, hide_index=True)
 
-# --- واجهة المحاسب ---
+# 4. واجهة المحاسب
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
     pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
@@ -137,7 +141,7 @@ elif page == "واجهة المحاسب":
                     update_order_status(row['Order ID'], 'Invoiced', url); st.rerun()
     else: st.info("📭 لا توجد طلبات معلقة")
 
-# --- واجهة الإدارة الذكية ---
+# 5. واجهة الإدارة الذكية
 elif page == "واجهة الإدارة الذكية":
     st.header("📊 مركز القيادة والتحكم الاستراتيجي")
     tab_strat, tab_sales, tab_stock, tab_visits = st.tabs(["🧠 التخطيط ودعم القرار", "💰 السيولة والمبيعات", "📦 إدارة المخزون", "📍 نشاط الميدان"])
@@ -146,7 +150,6 @@ elif page == "واجهة الإدارة الذكية":
         st.subheader("🤖 مستشار لآفار التنفيذي")
         conf = st.slider("🎯 نسبة الثقة في التوقعات (%)", 10, 100, 80)
         
-        # تحليل التوقعات
         v_df = visits.copy()
         if not v_df.empty:
             v_df['Potential Date'] = pd.to_datetime(v_df['Potential Date'])
@@ -156,7 +159,6 @@ elif page == "واجهة الإدارة الذكية":
         else:
             monthly_demand = pd.DataFrame(columns=['Month', 'Adj Qty'])
 
-        # منطق التوصيات
         with st.container(border=True):
             recs = []
             total_forecast = monthly_demand['Adj Qty'].sum() if not monthly_demand.empty else 0
@@ -175,7 +177,6 @@ elif page == "واجهة الإدارة الذكية":
             else:
                 for r in recs: st.markdown(r)
 
-        # جدول الإنتاج الزمني
         st.subheader("🗓️ جدول الإنتاج المقترح (قاعدة 9 أيام)")
         if not monthly_demand.empty:
             mps = monthly_demand.copy()
