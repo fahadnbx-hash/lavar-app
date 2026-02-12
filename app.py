@@ -204,9 +204,7 @@ elif page == "واجهة المحاسب":
         except: st.warning("⚠️ ميزة تصدير الإكسل قيد التحديث.")
     else: st.info("ℹ️ لا توجد فواتير معتمدة.")
 
-    st.markdown("  
-  
-", unsafe_allow_html=True)
+    st.markdown("  ", unsafe_allow_html=True)
     st.columns([5, 1])[1].link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="primary" )
 
 # --- واجهة الإدارة ---
