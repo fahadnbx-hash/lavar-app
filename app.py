@@ -33,6 +33,13 @@ st.markdown("""
     .alert-red { background-color: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; border-radius: 4px; }
     .alert-green { background-color: #e8f5e9; border-left: 4px solid #388e3c; padding: 10px; border-radius: 4px; }
     .alert-yellow { background-color: #fff3e0; border-left: 4px solid #f57c00; padding: 10px; border-radius: 4px; }
+    .metric-card { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 12px; padding: 20px; margin: 10px 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); border: 1px solid rgba(255, 255, 255, 0.5); text-align: center; }
+    .metric-card-actual { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .metric-card-predicted { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+    .metric-value { font-size: 2.2rem !important; font-weight: 900 !important; margin: 10px 0; letter-spacing: 1px; }
+    .metric-label { font-size: 0.95rem !important; font-weight: 600 !important; opacity: 0.95; margin-bottom: 5px; }
+    .metric-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .row-header { font-size: 1.3rem; font-weight: 800; color: #2E7D32; margin: 20px 0 15px 0; padding-bottom: 10px; border-bottom: 3px solid #2E7D32; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -230,20 +237,28 @@ elif page == "واجهة الإدارة الذكية":
     cash_coverage_percent = (expected_cash_flow / production_cost * 100) if production_cost > 0 else 0
     
     # ===== الصف الأول: البيانات الفعلية (ACTUAL) =====
-    st.markdown("### 📊 الصف الأول: البيانات الفعلية (ACTUAL)")
+    st.markdown('<div class="row-header">📊 البيانات الفعلية (ACTUAL)</div>', unsafe_allow_html=True)
     f1, f2, f3, f4 = st.columns(4)
-    f1.metric("📦 المخزون الحالي", f"{int(current_stock)} علبة")
-    f2.metric("💰 المبيعات المحققة", f"{sales_total:,.0f} ريال")
-    f3.metric("🛍️ كمية المبيعات", f"{int(sales_qty)} علبة")
-    f4.metric("📋 عدد الفواتير", f"{len(invoiced_adm)} فاتورة")
+    with f1:
+        st.markdown('<div class="metric-card metric-card-actual"><div class="metric-icon">📦</div><div class="metric-label">المخزون الحالي</div><div class="metric-value">{}</div><div class="metric-label">علبة</div></div>'.format(int(current_stock)), unsafe_allow_html=True)
+    with f2:
+        st.markdown('<div class="metric-card metric-card-actual"><div class="metric-icon">💰</div><div class="metric-label">المبيعات المحققة</div><div class="metric-value">{:,.0f}</div><div class="metric-label">ريال</div></div>'.format(sales_total), unsafe_allow_html=True)
+    with f3:
+        st.markdown('<div class="metric-card metric-card-actual"><div class="metric-icon">🛍️</div><div class="metric-label">كمية المبيعات</div><div class="metric-value">{}</div><div class="metric-label">علبة</div></div>'.format(int(sales_qty)), unsafe_allow_html=True)
+    with f4:
+        st.markdown('<div class="metric-card metric-card-actual"><div class="metric-icon">📋</div><div class="metric-label">عدد الفواتير</div><div class="metric-value">{}</div><div class="metric-label">فاتورة</div></div>'.format(len(invoiced_adm)), unsafe_allow_html=True)
     
     # ===== الصف الثاني: البيانات المتوقعة (PREDICTED) =====
-    st.markdown("### 🔮 الصف الثاني: البيانات المتوقعة (PREDICTED)")
+    st.markdown('<div class="row-header">🔮 البيانات المتوقعة (PREDICTED)</div>', unsafe_allow_html=True)
     e1, e2, e3, e4 = st.columns(4)
-    e1.metric("📈 الطلب المرجح", f"{int(weighted_demand)} علبة")
-    e2.metric("💵 القيمة المتوقعة", f"{weighted_demand * 11:,.0f} ريال")
-    e3.metric("🏭 تكلفة الإنتاج", f"{production_cost:,.0f} ريال")
-    e4.metric("⚠️ فجوة التمويل", f"{financing_gap:,.0f} ريال")
+    with e1:
+        st.markdown('<div class="metric-card metric-card-predicted"><div class="metric-icon">📈</div><div class="metric-label">الطلب المرجح</div><div class="metric-value">{}</div><div class="metric-label">علبة</div></div>'.format(int(weighted_demand)), unsafe_allow_html=True)
+    with e2:
+        st.markdown('<div class="metric-card metric-card-predicted"><div class="metric-icon">💵</div><div class="metric-label">القيمة المتوقعة</div><div class="metric-value">{:,.0f}</div><div class="metric-label">ريال</div></div>'.format(weighted_demand * 11), unsafe_allow_html=True)
+    with e3:
+        st.markdown('<div class="metric-card metric-card-predicted"><div class="metric-icon">🏭</div><div class="metric-label">تكلفة الإنتاج</div><div class="metric-value">{:,.0f}</div><div class="metric-label">ريال</div></div>'.format(production_cost), unsafe_allow_html=True)
+    with e4:
+        st.markdown('<div class="metric-card metric-card-predicted"><div class="metric-icon">⚠️</div><div class="metric-label">فجوة التمويل</div><div class="metric-value">{:,.0f}</div><div class="metric-label">ريال</div></div>'.format(financing_gap), unsafe_allow_html=True)
     
     st.divider()
     
