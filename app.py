@@ -217,36 +217,90 @@ elif page == "واجهة الإدارة الذكية":
     st.divider()
     
     # ===== نظام التنبؤ الذكي =====
-    st.markdown("### 🔮 نظام التنبؤ الذكي")
-    with st.container(border=True):
-        if not invoiced_adm.empty and not visits.empty:
-            # تحويل التواريخ
-            invoiced_adm['Order Date'] = pd.to_datetime(invoiced_adm['Order Date'])
-            visits['Date'] = pd.to_datetime(visits['Date'])
-            visits['Potential Date'] = pd.to_datetime(visits['Potential Date'])
-
-            # حساب المتوسطات
-            avg_monthly_sales = invoiced_adm.set_index('Order Date').resample('M')['Quantity'].sum().mean()
-            sales_this_month = invoiced_adm[invoiced_adm['Order Date'].dt.month == datetime.now().month]['Quantity'].sum()
-            
-            # توقعات الزيارات الميدانية
-            future_visits = visits[visits['Potential Date'] > datetime.now()]
-            potential_sales_from_visits = (future_visits['Potential Qty'] * (future_visits['Confidence'] / 100.0)).sum()
-            
-            # التوقع النهائي مع مؤشر الثقة
-            predicted_next_month_sales = (avg_monthly_sales * 0.5) + (potential_sales_from_visits * 0.5)
-            final_prediction = predicted_next_month_sales * (master_confidence / 100.0)
-
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.markdown("<div class='metric-card'><div class='metric-label'>📈 متوسط المبيعات الشهري</div><div class='metric-value'>{:.0f}</div></div>".format(avg_monthly_sales), unsafe_allow_html=True)
-            with c2:
-                st.markdown("<div class='metric-card metric-card-actual'><div class='metric-label'>💰 مبيعات الشهر الحالي</div><div class='metric-value'>{:.0f}</div></div>".format(sales_this_month), unsafe_allow_html=True)
-            with c3:
-                st.markdown("<div class='metric-card metric-card-predicted'><div class='metric-label'>🔮 توقعات الشهر القادم</div><div class='metric-value'>{:.0f}</div></div>".format(final_prediction), unsafe_allow_html=True)
+    st.markdown("### 📅 خطة الإنتاج والاحتياج المالي المتوقع")
+    if not visits.empty:
+        today = date.today()
+        production_plan = []
+        for _, v in visits.iterrows():
+            p_date = pd.to_datetime(v['Potential Date']).date()
+            if p_date >= today:
+                order_date = p_date - timedelta(days=LEAD_TIME_DAYS)
+                weighted_qty = v['Potential Qty'] * (v['Confidence'] / 100.0) * (master_confidence / 100.0)
+                if weighted_qty > 0:
+                    cost = weighted_qty * UNIT_COST
+                    # حساب الكاش المتوفر (تبسيط: مبيعات الشهر الحالي)
+                    available_cash = invoiced_adm[pd.to_datetime(invoiced_adm['Order Date']).dt.month == today.month]['Total Amount'].sum() if not invoiced_adm.empty else 0
+                    production_plan.append({
+                        'order_date': order_date,
+                        'delivery_date': p_date,
+                        'quantity': int(weighted_qty),
+                        'cost': cost,
+                        'available_cash': available_cash,
+                        'cash_coverage': (available_cash / cost * 100) if cost > 0 else 100,
+                        'financing_gap': max(0, cost - available_cash),
+                        'confidence': v['Confidence'] * (master_confidence / 100.0)
+                    })
+        
+        if production_plan:
+            h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([1.5, 1.5, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2])
+            h1.write("**تاريخ الطلب**"); h2.write("**تاريخ الوصول**"); h3.write("**الكمية**"); h4.write("**التكلفة**"); h5.write("**الكاش**"); h6.write("**التغطية**"); h7.write("**الفجوة**"); h8.write("**الثقة%**")
+            st.divider()
+            for order in production_plan:
+                c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1.5, 1.5, 1.2, 1.2, 1.2, 1.2, 1.2, 1.2])
+                c1.write(order['order_date'])
+                c2.write(order['delivery_date'])
+                c3.write(f"{order['quantity']} علبة")
+                c4.write(f"{order['cost']:,.0f} ر")
+                c5.write(f"{order['available_cash']:,.0f} ر")
+                if order['cash_coverage'] >= 100:
+                    c6.markdown(f"<span style='color: green; font-weight: bold;'>{order['cash_coverage']:.0f}%</span>", unsafe_allow_html=True)
+                elif order['cash_coverage'] >= 50:
+                    c6.markdown(f"<span style='color: orange; font-weight: bold;'>{order['cash_coverage']:.0f}%</span>", unsafe_allow_html=True)
+                else:
+                    c6.markdown(f"<span style='color: red; font-weight: bold;'>{order['cash_coverage']:.0f}%</span>", unsafe_allow_html=True)
+                c7.write(f"{order['financing_gap']:,.0f} ر")
+                c8.write(f"{order['confidence']:.0f}%")
         else:
-            st.info("ℹ️ لا توجد بيانات كافية للتنبؤ. يرجى التأكد من وجود فواتير وزيارات مسجلة.")
-
+            st.info("✅ لا توجد طلبات مستقبلية مسجلة أو المخزون كافي لتغطية الطلبات المتوقعة.")
+    
+    st.divider()
+    
+    # ===== خريطة التدفق الزمني للإنتاج الأسبوعي =====
+    st.markdown("### 📅 خريطة التدفق الزمني للإنتاج الأسبوعي")
+    if not visits.empty:
+        v_plot = visits.copy()
+        v_plot['Date'] = pd.to_datetime(v_plot['Date'])
+        v_plot['Week'] = v_plot['Date'].dt.to_period('W')
+        w_data = v_plot.groupby('Week')['Potential Qty'].sum().reset_index()
+        w_data['Week_Start'] = w_data['Week'].apply(lambda x: x.start_time.strftime('%Y-%m-%d'))
+        # استخدام master_confidence كبديل لـ confidence_level غير الموجود في app(1).py
+        w_data['Weighted_Qty'] = (w_data['Potential Qty'] * (master_confidence / 100.0)).astype(int)
+        w_data['Cost'] = w_data['Weighted_Qty'] * UNIT_COST
+        display_table = w_data[['Week_Start', 'Potential Qty', 'Weighted_Qty', 'Cost']].copy()
+        display_table.columns = ['الأسبوع', 'الكمية المتوقعة', 'الكمية المرجحة', 'التكلفة (ريال)']
+        st.dataframe(display_table, use_container_width=True, hide_index=True)
+    else:
+        st.info("📊 لا توجد بيانات زيارات لعرض خريطة التدفق الزمني.")
+    
+    st.divider()
+    
+    # ===== جدول الفواتير المستحقة والمتأخرة =====
+    st.markdown("### 📋 جدول الفواتير المستحقة والمتأخرة")
+    if not invoiced_adm.empty:
+        today = date.today()
+        inv_display = invoiced_adm[['Customer Name', 'Quantity', 'Total Amount', 'Due Date']].copy()
+        inv_display.columns = ['العميل', 'الكمية', 'القيمة (ريال)', 'تاريخ الاستحقاق']
+        def highlight_overdue(row):
+            due_date = pd.to_datetime(row['تاريخ الاستحقاق']).date()
+            if due_date < today:
+                return ['background-color: #ffcdd2'] * len(row)
+            elif due_date <= today + timedelta(days=3):
+                return ['background-color: #fff3e0'] * len(row)
+            return [''] * len(row)
+        st.dataframe(inv_display.style.apply(highlight_overdue, axis=1), use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ لا توجد فواتير معتمدة حالياً.")
+    
     st.divider()
     
     # ===== نظام تحقيق المستهدف السنوي =====
@@ -254,16 +308,11 @@ elif page == "واجهة الإدارة الذكية":
     with st.container(border=True):
         current_annual_target = get_annual_target()
         target_val_year = st.number_input("أدخل المستهدف السنوي (علبة)", value=current_annual_target, min_value=1, key="annual_target_input")
-        
         if target_val_year != current_annual_target:
             update_annual_target(target_val_year)
-        
-        # حساب الكمية المباعة للسنة الحالية
         current_year = datetime.now().year
         sales_qty_year = invoiced_adm[pd.to_datetime(invoiced_adm["Order Date"]).dt.year == current_year]["Quantity"].sum() if not invoiced_adm.empty else 0
-        
         percent_year = (sales_qty_year / target_val_year * 100) if target_val_year > 0 else 0
-        
         col_t1, col_t2 = st.columns([2, 1])
         with col_t1:
             st.write(f"**نسبة تحقيق المستهدف السنوي: {percent_year:.1f}%**")
@@ -292,7 +341,6 @@ elif page == "واجهة الإدارة الذكية":
         h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2, 1.5, 1.5, 2.5, 1])
         h1.write("**المندوب**"); h2.write("**العميل**"); h3.write("**التاريخ**"); h4.write("**الكمية**"); h5.write("**مؤشر الثقة**"); h6.write("**الإجراء**")
         st.divider()
-        
         if not visits.empty:
             for i, r in visits.iterrows():
                 cv1, cv2, cv3, cv4, cv5, cv6 = st.columns([1.5, 2, 1.5, 1.5, 2.5, 1])
@@ -300,70 +348,50 @@ elif page == "واجهة الإدارة الذكية":
                 cv2.write(r['Customer Name'])
                 cv3.write(r['Date'])
                 cv4.write(f"{int(r['Potential Qty'])} علبة")
-                
-                # حساب مؤشر الثقة الذكي تلقائياً بناءً على عوامل مختلفة
-                auto_conf = 60  # قاعدة أساسية معدلة
-                if r['Potential Qty'] > 500:
-                    auto_conf += 10
+                auto_conf = 60
+                if r['Potential Qty'] > 500: auto_conf += 10
                 days_diff = (pd.to_datetime(r['Potential Date']) - pd.to_datetime(r['Date'])).days
-                if days_diff < 10:
-                    auto_conf += 15
+                if days_diff < 10: auto_conf += 15
                 auto_conf = min(100, auto_conf)
-                
                 with cv5:
-                    # قراءة قيمة الثقة من قاعدة البيانات إن وجدت
                     saved_conf = get_visit_confidence(i)
                     default_conf = saved_conf if saved_conf is not None else auto_conf
-                    
                     conf_val = st.slider("مؤشر الثقة", 0, 100, default_conf, key=f"conf_{i}")
-                    
-                    # حفظ قيمة الثقة في قاعدة البيانات عند التغيير
-                    if conf_val != default_conf:
-                        update_visit_confidence(i, conf_val)
-                    
+                    if conf_val != default_conf: update_visit_confidence(i, conf_val)
                     weighted_qty = r['Potential Qty'] * (conf_val / 100.0)
                     st.caption(f"📊 {int(weighted_qty)} علبة")
-                
                 if cv6.button("حذف 🗑️", key=f"adm_del_{i}"):
                     delete_visit(i)
                     st.rerun()
-        else:
-            st.info("ℹ️ لا توجد سجلات حالياً.")
+        else: st.info("ℹ️ لا توجد سجلات حالياً.")
 
     # ===== قسم إدارة البيانات (Admin Panel) =====
     st.markdown("---")
     st.markdown("### ⚙️ لوحة إدارة البيانات (Admin Only)")
-    
     with st.expander("🔧 إدارة الفواتير", expanded=False):
         st.subheader("تعديل أو حذف الفواتير")
         orders = get_orders()
         if not orders.empty:
             col1, col2 = st.columns([3, 1])
             with col1:
-                selected_order = st.selectbox("اختر فاتورة للتعديل أو الحذف", 
-                    [f"{row['Order ID']} - {row['Customer Name']}" for _, row in orders.iterrows()],
-                    key="admin_order_select")
-            
+                selected_order = st.selectbox("اختر فاتورة للتعديل أو الحذف", [f"{row['Order ID']} - {row['Customer Name']}" for _, row in orders.iterrows()], key="admin_order_select")
             if selected_order:
                 order_id = selected_order.split(" - ")[0]
                 col_edit, col_del = st.columns(2)
                 with col_edit:
                     if st.button("✏️ تعديل", key=f"edit_order_{order_id}"):
                         st.info("اختر الحقل والقيمة الجديدة")
-                        field = st.selectbox("الحقل المراد تعديله", 
-                            ["Customer Name", "Quantity", "Unit Price", "Status"], key=f"field_{order_id}")
+                        field = st.selectbox("الحقل المراد تعديله", ["Customer Name", "Quantity", "Unit Price", "Status"], key=f"field_{order_id}")
                         new_val = st.text_input(f"القيمة الجديدة لـ {field}", key=f"newval_{order_id}")
                         if st.button("حفظ التعديل", key=f"save_{order_id}"):
                             update_order(order_id, field, new_val)
                             st.success("✅ تم التعديل بنجاح")
                             st.rerun()
-                
                 with col_del:
                     if st.button("🗑️ حذف", key=f"del_order_{order_id}"):
                         delete_order_by_id(order_id)
                         st.success("✅ تم الحذف بنجاح")
                         st.rerun()
-    
     with st.expander("📦 إدارة المخزون", expanded=False):
         st.subheader("تعديل أو حذف المخزون")
         stock = get_stock()
@@ -371,7 +399,6 @@ elif page == "واجهة الإدارة الذكية":
             col1, col2 = st.columns([3, 1])
             with col1:
                 selected_product = st.selectbox("اختر منتج", stock["Product"].tolist(), key="admin_stock_select")
-            
             if selected_product:
                 col_edit, col_del = st.columns(2)
                 with col_edit:
@@ -381,42 +408,33 @@ elif page == "واجهة الإدارة الذكية":
                             update_stock(selected_product, new_qty)
                             st.success("✅ تم التعديل بنجاح")
                             st.rerun()
-                
                 with col_del:
                     if st.button("🗑️ حذف المنتج", key=f"del_stock_{selected_product}"):
                         delete_stock_item(selected_product)
                         st.success("✅ تم الحذف بنجاح")
                         st.rerun()
-    
     with st.expander("👥 إدارة الزيارات الميدانية", expanded=False):
         st.subheader("تعديل أو حذف الزيارات")
         visits = get_visits()
         if not visits.empty:
-            visit_options = [f"{idx}: {row['Customer Name']} - {row['Potential Qty']} علبة" 
-                           for idx, row in visits.iterrows()]
+            visit_options = [f"{idx}: {row['Customer Name']} - {row['Potential Qty']} علبة" for idx, row in visits.iterrows()]
             selected_visit_str = st.selectbox("اختر زيارة", visit_options, key="admin_visit_select")
-            
             if selected_visit_str:
                 visit_idx = int(selected_visit_str.split(":")[0])
                 col_edit, col_del = st.columns(2)
-                
                 with col_edit:
                     if st.button("✏️ تعديل", key=f"edit_visit_{visit_idx}"):
-                        field = st.selectbox("الحقل المراد تعديله", 
-                            ["Customer Name", "Potential Qty", "Potential Date", "Notes"], 
-                            key=f"field_visit_{visit_idx}")
+                        field = st.selectbox("الحقل المراد تعديله", ["Customer Name", "Potential Qty", "Potential Date", "Notes"], key=f"field_visit_{visit_idx}")
                         new_val = st.text_input(f"القيمة الجديدة", key=f"newval_visit_{visit_idx}")
                         if st.button("حفظ التعديل", key=f"save_visit_{visit_idx}"):
                             update_visit(visit_idx, field, new_val)
                             st.success("✅ تم التعديل بنجاح")
                             st.rerun()
-                
                 with col_del:
                     if st.button("🗑️ حذف الزيارة", key=f"del_visit_{visit_idx}"):
                         delete_visit_by_index(visit_idx)
                         st.success("✅ تم الحذف بنجاح")
                         st.rerun()
-    
     with st.expander("⚡ خطر - مسح جميع البيانات", expanded=False):
         st.warning("⚠️ هذا الإجراء سيمسح جميع البيانات بشكل نهائي!")
         if st.button("🔥 مسح كل البيانات", key="clear_all"):
