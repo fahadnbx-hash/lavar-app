@@ -3,18 +3,15 @@ import pandas as pd
 from database import init_db, get_orders, add_order, update_order_status, get_stock, upload_to_github, delete_order, update_stock_quantity, add_visit, get_visits
 from datetime import datetime, date, timedelta
 import plotly.express as px
-import plotly.graph_objects as go
 
 # إعداد الصفحة
-st.set_page_config(page_title="نظام لآفار للمنظفات - النسخة المتكاملة", layout="wide")
+st.set_page_config(page_title="نظام لآفار المتكامل", layout="wide")
 init_db()
 
-# الثوابت التشغيلية
-UNIT_COST = 5.0
-LEAD_TIME_DAYS = 9
-UNITS_PER_CARTON = 6
+# الثوابت
+UNIT_COST, LEAD_TIME_DAYS, UNITS_PER_CARTON = 5.0, 9, 6
 
-# دالة مساعدة لحذف زيارة
+# دالة حذف الزيارة
 def remove_visit(index):
     st.session_state.visits_df = st.session_state.visits_df.drop(index).reset_index(drop=True)
 
@@ -24,11 +21,9 @@ with st.sidebar:
     st.divider()
 
 # --- نظام تسجيل الدخول ---
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-
+if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if not st.session_state.logged_in:
-    st.title("🔐 تسجيل الدخول - لآفار")
+    st.title("🔐 تسجيل الدخول")
     user = st.text_input("اسم المستخدم")
     password = st.text_input("كلمة المرور", type="password")
     if st.button("دخول", use_container_width=True):
@@ -41,206 +36,174 @@ if not st.session_state.logged_in:
         elif user == "sales" and password == "lavar_sales":
             st.session_state.logged_in, st.session_state.role, st.session_state.user_name = True, "sales", "المندوب"
             st.rerun()
-        else: st.error("بيانات الدخول غير صحيحة")
+        else: st.error("خطأ في البيانات")
     st.stop()
 
-# معلومات المستخدم في القائمة الجانبية
+# بيانات المستخدم والخروج
 st.sidebar.markdown(f"### 👤 {st.session_state.user_name}")
 if st.sidebar.button("🚪 تسجيل الخروج", use_container_width=True):
     st.session_state.logged_in = False
     st.rerun()
 
-# تحديد الصفحات المتاحة
-if st.session_state.role == "admin":
-    available_pages = ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"]
-elif st.session_state.role == "accountant":
-    available_pages = ["واجهة المحاسب"]
-else:
-    available_pages = ["واجهة المندوب"]
+# التنقل
+pages = ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"] if st.session_state.role == "admin" else \
+        ["واجهة المحاسب"] if st.session_state.role == "accountant" else ["واجهة المندوب"]
+page = st.sidebar.radio("📌 الانتقال إلى:", pages)
 
-page = st.sidebar.radio("📌 الانتقال إلى:", available_pages)
-
-# جلب البيانات العامة
-orders = get_orders()
-visits = get_visits()
-stock_df = get_stock()
+# جلب البيانات
+orders, visits, stock_df = get_orders(), get_visits(), get_stock()
 current_stock = stock_df.iloc[0]['Quantity'] if not stock_df.empty else 0
 
 # --- واجهة المندوب ---
 if page == "واجهة المندوب":
     st.header("📋 واجهة المندوب")
-    tab1, tab2, tab3 = st.tabs(["🛒 إدارة الطلبات", "📍 سجل الزيارات الميدانية", "🧮 حاسبة الكراتين"])
+    t1, t2, t3 = st.tabs(["🛒 الطلبات", "📍 الزيارات", "🧮 الحاسبة"])
     
-    with tab1:
+    with t1:
         with st.expander("➕ إضافة طلب جديد", expanded=True):
             c1, c2 = st.columns(2)
             with c1:
-                name = st.text_input("👤 اسم العميل")
-                cr = st.text_input("📄 السجل التجاري")
-                tax = st.text_input("🔢 الرقم الضريبي")
-                address = st.text_input("📍 العنوان")
-                phone = st.text_input("📞 رقم الجوال")
+                name, cr, tax = st.text_input("اسم العميل"), st.text_input("السجل التجاري"), st.text_input("الرقم الضريبي")
+                addr, phone = st.text_input("العنوان"), st.text_input("الجوال")
             with c2:
-                prod = st.selectbox("📦 المنتج", ["صابون لآفار 3 لتر"])
-                qty = st.number_input("🔢 الكمية (بالعلبة)", 1, 10000, 1)
-                price = st.number_input("💰 سعر الوحدة (الافتراضي 11)", 0.0, 1000.0, 11.0)
-                days = st.number_input("⏳ أيام الاستحقاق", 0, 99, 30)
+                qty = st.number_input("الكمية (علبة)", 1, 10000, 1)
+                price = st.number_input("سعر الوحدة", 0.0, 1000.0, 11.0)
+                days = st.number_input("أيام الاستحقاق", 0, 99, 30)
             if st.button("حفظ كمسودة 💾", use_container_width=True):
-                add_order(name, cr, tax, address, phone, prod, qty, days, price)
-                st.success("✅ تم حفظ المسودة!"); st.rerun()
+                add_order(name, cr, tax, addr, phone, "صابون لآفار 3 لتر", qty, days, price)
+                st.success("تم الحفظ!"); st.rerun()
         
-        st.subheader("🚀 طلبات بانتظار الإرسال")
+        st.subheader("🚀 المسودات الحالية")
         drafts = orders[orders['Status'] == 'Draft'] if not orders.empty else pd.DataFrame()
         if not drafts.empty:
-            for _, row in drafts.iterrows():
+            for _, r in drafts.iterrows():
                 with st.container(border=True):
-                    c_info, c_action = st.columns([4, 1.5])
-                    with c_info:
-                        st.markdown(f"### 👤 {row['Customer Name']}")
-                        st.markdown(f"📦 **الكمية:** `{row['Quantity']}` علبة | 💰 **السعر:** `{row['Unit Price']:.2f}` ريال")
-                    with c_action:
-                        c_send, c_del = st.columns(2)
-                        with c_send:
-                            if st.button("إرسال 📤", key=f"p_{row['Order ID']}", use_container_width=True):
-                                update_order_status(row['Order ID'], 'Pending'); st.rerun()
-                        with c_del:
-                            if st.button("🗑️", key=f"d_{row['Order ID']}", use_container_width=True):
-                                delete_order(row['Order ID']); st.rerun()
-        else: st.info("📭 لا توجد مسودات حالياً")
+                    col_d1, col_d2 = st.columns([4, 1])
+                    col_d1.write(f"👤 {r['Customer Name']} | 📦 {r['Quantity']} علبة | 💰 {r['Total Amount']} ريال")
+                    if col_d2.button("إرسال 📤", key=f"s_{r['Order ID']}"):
+                        update_order_status(r['Order ID'], 'Pending'); st.rerun()
+        else: st.info("لا توجد مسودات")
 
-    with tab2:
-        st.subheader("📍 تسجيل زيارة ميدانية")
-        with st.form("visit_form", clear_on_submit=True):
+    with t2:
+        with st.form("visit_form"):
             c1, c2 = st.columns(2)
-            with c1:
-                v_customer = st.text_input("👤 اسم العميل")
-                v_type = st.selectbox("📝 نوع الزيارة", ["زيارة دورية", "عميل محتمل جديد", "متابعة شكوى"])
-            with c2:
-                pot_qty = st.number_input("🔮 الكمية المتوقعة", 0, 10000, 0)
-                pot_date = st.date_input("📅 تاريخ الطلب المتوقع", date.today() + timedelta(days=7))
-            v_notes = st.text_area("🗒️ ملاحظات")
-            if st.form_submit_button("💾 حفظ الزيارة"):
-                add_visit(st.session_state.user_name, v_customer, v_type, pot_qty, str(pot_date), v_notes)
-                st.success("✅ تم تسجيل الزيارة!"); st.rerun()
-        
-        st.subheader("📜 سجل زياراتك")
-        if not visits.empty:
-            my_v = visits[visits['Salesman'] == st.session_state.user_name]
-            st.dataframe(my_v, use_container_width=True, hide_index=True)
+            with c1: v_cust, v_type = st.text_input("العميل"), st.selectbox("النوع", ["دورية", "جديد", "شكوى"])
+            with c2: p_qty, p_date = st.number_input("الكمية المتوقعة", 0), st.date_input("التاريخ المتوقع")
+            if st.form_submit_button("حفظ الزيارة"):
+                add_visit(st.session_state.user_name, v_cust, v_type, p_qty, str(p_date), "")
+                st.success("تم التسجيل!"); st.rerun()
 
-    with tab3:
-        st.subheader("🧮 حاسبة التحويل (كرتون ↔ علبة)")
-        col_calc1, col_calc2 = st.columns(2)
-        with col_calc1:
-            input_cartons = st.number_input("أدخل عدد الكراتين", min_value=0, value=0)
-            st.markdown(f"**النتيجة:** `{input_cartons * UNITS_PER_CARTON}` علبة")
-        with col_calc2:
-            input_units = st.number_input("أدخل عدد العلب", min_value=0, value=0)
-            st.markdown(f"**النتيجة:** `{input_units / UNITS_PER_CARTON:.2f}` كرتون")
+    with t3:
+        st.subheader("🧮 حاسبة لآفار (كرتون = 6 علب)")
+        c1, c2 = st.columns(2)
+        with c1:
+            cartons = st.number_input("عدد الكراتين", min_value=0)
+            st.success(f"النتيجة: {cartons * UNITS_PER_CARTON} علبة")
+        with c2:
+            units = st.number_input("عدد العلب", min_value=0)
+            st.success(f"النتيجة: {units / UNITS_PER_CARTON:.2f} كرتون")
 
 # --- واجهة المحاسب ---
 elif page == "واجهة المحاسب":
     st.header("💰 واجهة المحاسب")
-    c_d1, _ = st.columns([1, 4])
-    with c_d1:
-        st.link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="primary", use_container_width=True )
+    c1, _ = st.columns([1, 4])
+    c1.link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="primary", use_container_width=True )
     st.divider()
     
     pending = orders[orders['Status'] == 'Pending'] if not orders.empty else pd.DataFrame()
     if not pending.empty:
-        for _, row in pending.iterrows():
+        for _, r in pending.iterrows():
             with st.container(border=True):
-                st.write(f"**طلب #{row['Order ID']}** | العميل: {row['Customer Name']} | **الكمية:** {row['Quantity']} علبة")
-                pdf = st.file_uploader("ارفع الفاتورة (PDF)", type=['pdf'], key=f"f_{row['Order ID']}")
-                if pdf and st.button("✅ اعتماد وخصم من المخزون", key=f"b_{row['Order ID']}", use_container_width=True):
-                    new_q = current_stock - row['Quantity']
-                    update_stock_quantity(row['Product'], new_q)
-                    url = upload_to_github(pdf.getvalue(), f"inv_{row['Order ID']}.pdf")
-                    update_order_status(row['Order ID'], 'Invoiced', url)
-                    st.success("✅ تم الاعتماد وخصم الكمية!"); st.rerun()
-    else: st.info("📭 لا توجد طلبات معلقة")
+                st.write(f"📦 طلب #{r['Order ID']} | العميل: {r['Customer Name']} | الكمية: {r['Quantity']}")
+                pdf = st.file_uploader("ارفع الفاتورة", type=['pdf'], key=f"f_{r['Order ID']}")
+                if pdf and st.button("✅ اعتماد وخصم من المخزون", key=f"b_{r['Order ID']}"):
+                    update_stock_quantity(r['Product'], current_stock - r['Quantity'])
+                    update_order_status(r['Order ID'], 'Invoiced', upload_to_github(pdf.getvalue(), f"inv_{r['Order ID']}.pdf"))
+                    st.success("تم الاعتماد!"); st.rerun()
+    else: st.info("لا توجد طلبات معلقة")
 
-# --- واجهة الإدارة الذكية ---
+# --- واجهة الإدارة ---
 elif page == "واجهة الإدارة الذكية":
     st.header("📊 مركز القيادة والتحكم")
-    st.markdown("### 📈 ملخص الأداء العام")
-    invoiced_orders = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
-    total_sales_val = invoiced_orders['Total Amount'].sum() if not invoiced_orders.empty else 0
-    total_pot_qty = visits['Potential Qty'].sum() if not visits.empty else 0
     
-    col_actual1, col_actual2, col_actual3, col_actual4 = st.columns(4)
-    col_actual1.metric("📦 المخزون الحالي", f"{int(current_stock)} علبة")
-    col_actual2.metric("💰 مبيعات محققة", f"{total_sales_val:,.0f} ريال")
-    col_actual3.metric("🔮 طلبات متوقعة", f"{int(total_pot_qty)} علبة")
-    col_actual4.metric("🏭 تكلفة الإنتاج", f"{total_pot_qty * UNIT_COST:,.0f} ريال")
+    # ملخص الأداء
+    invoiced = orders[orders['Status'] == 'Invoiced'] if not orders.empty else pd.DataFrame()
+    sales_val = invoiced['Total Amount'].sum() if not invoiced.empty else 0
+    pot_qty = visits['Potential Qty'].sum() if not visits.empty else 0
+    
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("📦 المخزون الحالي", f"{int(current_stock)} علبة")
+    c2.metric("💰 مبيعات محققة", f"{sales_val:,.0f} ريال")
+    c3.metric("🔮 طلبات متوقعة", f"{int(pot_qty)} علبة")
+    c4.metric("🏭 تكلفة الإنتاج", f"{pot_qty * UNIT_COST:,.0f} ريال")
 
-    tab_strat, tab_sales, tab_stock, tab_visits = st.tabs(["🧠 التخطيط ودعم القرار", "💰 السيولة والمبيعات", "📦 إدارة المخزون", "📍 نشاط الميدان"])
+    tab1, tab2, tab3, tab4 = st.tabs(["🧠 التخطيط", "💰 المبيعات", "📦 المخزون", "📍 الميدان"])
     
-    with tab_strat:
-        conf = st.slider("🎯 نسبة الثقة في التوقعات (%)", 10, 100, 80)
+    with tab1:
+        conf = st.slider("نسبة الثقة (%)", 10, 100, 80)
         v_df = visits.copy()
         if not v_df.empty:
             v_df['Potential Date'] = pd.to_datetime(v_df['Potential Date'])
             v_df['Month'] = v_df['Potential Date'].dt.to_period('M').astype(str)
+            v_df['Week'] = v_df['Potential Date'].dt.to_period('W').astype(str)
             v_df['Adj Qty'] = v_df['Potential Qty'] * (conf/100)
-            monthly_demand = v_df.groupby('Month')['Adj Qty'].sum().reset_index()
-        else: monthly_demand = pd.DataFrame(columns=['Month', 'Adj Qty'])
+            monthly = v_df.groupby('Month')['Adj Qty'].sum().reset_index()
+            weekly_cost = v_df.groupby('Week')['Adj Qty'].sum().reset_index()
+            weekly_cost['Cost'] = weekly_cost['Adj Qty'] * UNIT_COST
+        else:
+            monthly, weekly_cost = pd.DataFrame(columns=['Month', 'Adj Qty']), pd.DataFrame(columns=['Week', 'Cost'])
 
-        with st.container(border=True):
-            total_forecast = monthly_demand['Adj Qty'].sum() if not monthly_demand.empty else 0
-            if total_forecast > current_stock:
-                st.markdown(f"🔴 **خطر نفاد:** الطلب المتوقع ({int(total_forecast)}) أكبر من المخزون ({int(current_stock)}).")
-            else: st.write("✅ الحالة التشغيلية مستقرة.")
+        st.subheader("📅 تكلفة الإنتاج الأسبوعية")
+        if not weekly_cost.empty: st.plotly_chart(px.bar(weekly_cost, x='Week', y='Cost', color_discrete_sequence=['red']), use_container_width=True)
+        else: st.info("لا توجد بيانات أسبوعية")
 
-        st.subheader("🗓️ جدول الإنتاج المقترح (قاعدة 9 أيام)")
-        if not monthly_demand.empty:
-            mps = monthly_demand.copy()
-            temp_stock = current_stock
-            required_prod = []
-            for qty in mps['Adj Qty']:
-                needed = max(0, qty - temp_stock)
-                temp_stock = max(0, temp_stock - qty)
-                required_prod.append(needed)
-            mps['الإنتاج المطلوب'] = required_prod
-            mps['تاريخ بدء الإنتاج'] = mps['Month'].apply(lambda x: (pd.to_datetime(str(x)) - timedelta(days=LEAD_TIME_DAYS)).strftime('%Y-%m-%d'))
-            st.table(mps[['Month', 'Adj Qty', 'الإنتاج المطلوب', 'تاريخ بدء الإنتاج']].rename(columns={'Month': 'الشهر المستهدف', 'Adj Qty': 'الطلب المتوقع'}))
+        st.subheader("🗓️ جدول الإنتاج (9 أيام)")
+        if not monthly.empty:
+            mps = monthly.copy()
+            temp_s, req_p = current_stock, []
+            for q in mps['Adj Qty']:
+                needed = max(0, q - temp_s)
+                temp_s = max(0, temp_s - q)
+                req_p.append(needed)
+            mps['الإنتاج'] = req_p
+            mps['تاريخ البدء'] = mps['Month'].apply(lambda x: (pd.to_datetime(str(x)) - timedelta(days=9)).strftime('%Y-%m-%d'))
+            st.table(mps.rename(columns={'Month': 'الشهر', 'Adj Qty': 'الطلب المتوقع'}))
             
-            total_needed_now = mps['الإنتاج المطلوب'].sum()
-            if total_needed_now > 0:
-                earliest_date = mps[mps['الإنتاج المطلوب'] > 0]['تاريخ بدء الإنتاج'].min()
-                st.info(f"💡 **التوصية:** يجب إنتاج **{int(total_needed_now)}** علبة، والبدء في **{earliest_date}**.")
-            else:
-                st.success("✅ **المخزون الحالي كافٍ ولا توجد حاجة لطلبات إنتاج حالياً.**")
+            total_p = sum(req_p)
+            if total_p > 0:
+                st.info(f"💡 يجب إنتاج {int(total_p)} علبة")
+                st.markdown("#### 💰 تحليل فجوة السيولة")
+                prod_cost = total_p * UNIT_COST
+                cash_flow = invoiced['Total Amount'].sum() # تبسيط
+                st.write(f"التكلفة: {prod_cost:,.0f} | السيولة: {cash_flow:,.0f}")
+                if cash_flow >= prod_cost: st.success("مغطاة بالكامل")
+                else: st.error(f"عجز: {prod_cost - cash_flow:,.0f} ريال")
+            else: st.success("✅ المخزون كافٍ حالياً")
+        else: st.info("لا توجد بيانات إنتاج")
 
-    with tab_stock:
-        new_q = st.number_input("تحديث المخزون يدوياً", value=int(current_stock))
-        if st.button("حفظ التحديث"):
+    with tab2:
+        st.subheader("💰 المبيعات الشهرية")
+        if not invoiced.empty:
+            invoiced['M'] = pd.to_datetime(invoiced['Due Date']).dt.to_period('M').astype(str)
+            st.plotly_chart(px.bar(invoiced.groupby('M')['Total Amount'].sum().reset_index(), x='M', y='Total Amount'), use_container_width=True)
+        else: st.info("لا توجد مبيعات")
+
+    with tab3:
+        st.subheader("📦 إدارة المخزون")
+        new_q = st.number_input("تعديل يدوي", value=int(current_stock))
+        if st.button("تحديث"):
             update_stock_quantity("صابون لآفار 3 لتر", new_q); st.rerun()
 
-    with tab_visits:
-        st.subheader("📍 إدارة سجل نشاط الميدان")
+    with tab4:
+        st.subheader("📍 سجل نشاط الميدان")
         if not visits.empty:
-            # تصميم جدول احترافي ومنظم
-            st.markdown("""
-                <style>
-                .visit-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                .visit-table th { background-color: #f1f3f4; padding: 12px; text-align: right; border-bottom: 2px solid #ddd; }
-                .visit-table td { padding: 12px; border-bottom: 1px solid #eee; }
-                </style>
-            """, unsafe_allow_html=True)
-            
-            # عرض البيانات في شكل صفوف منظمة
-            for index, row in visits.iterrows():
-                with st.container(border=True):
-                    c1, c2, c3, c4, c5 = st.columns([1.5, 2, 1.5, 2, 1])
-                    if index == 0: # عناوين الأعمدة في أول صف فقط
-                        st.markdown("**المندوب | العميل | التاريخ | الكمية المتوقعة | الإجراء**")
-                        st.divider()
-                    
-                    c1.write(row['Salesman'])
-                    c2.write(row['Customer Name'])
-                    c3.write(row['Date'])
-                    c4.write(f"{row['Potential Qty']} علبة ({row['Potential Date']})")
-                    if c5.button("حذف 🗑️", key=f"v_del_{index}", use_container_width=True):
-                        remove_visit(index); st.rerun()
-        else: st.info("لا توجد زيارات مسجلة")
+            # عرض جدول منظم بعناوين ثابتة
+            cols = st.columns([1.5, 2, 1.5, 2, 1])
+            cols[0].write("**المندوب**"); cols[1].write("**العميل**"); cols[2].write("**التاريخ**"); cols[3].write("**الكمية**"); cols[4].write("**حذف**")
+            st.divider()
+            for i, r in visits.iterrows():
+                c = st.columns([1.5, 2, 1.5, 2, 1])
+                c[0].write(r['Salesman']); c[1].write(r['Customer Name']); c[2].write(r['Date']); c[3].write(f"{r['Potential Qty']} ({r['Potential Date']})")
+                if c[4].button("🗑️", key=f"v_{i}"):
+                    remove_visit(i); st.rerun()
+        else: st.info("السجل فارغ")
