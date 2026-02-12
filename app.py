@@ -16,30 +16,36 @@ UNIT_COST, LEAD_TIME_DAYS, UNITS_PER_CARTON = 5.0, 9, 6
 # 2. تحسينات الواجهة (CSS) للمحاذاة والجمالية
 st.markdown("""
     <style>
-    .stApp { text-align: right; direction: rtl; }
+    * { box-sizing: border-box; }
+    .stApp { text-align: right; direction: rtl; overflow-x: hidden; }
     .stMetric { text-align: right; }
     .stMetric label { font-size: 0.75rem !important; color: #666; }
     .stMetric div { font-size: 1.1rem !important; font-weight: bold; }
     div[data-testid="stExpander"] { text-align: right; }
-    .stTable { direction: rtl; border: 1px solid #eee; }
-    .stDataFrame { direction: rtl; }
+    .stTable { direction: rtl; border: 1px solid #eee; overflow-x: auto; }
+    .stDataFrame { direction: rtl; overflow-x: auto; }
     .stButton button { width: 100%; }
-    th { text-align: right !important; background-color: #f1f3f4; }
-    td { text-align: right !important; }
+    th { text-align: right !important; background-color: #f1f3f4; white-space: nowrap; }
+    td { text-align: right !important; white-space: nowrap; }
     .main-title { color: #2E7D32; text-align: center; margin-bottom: 20px; }
-    [data-testid="stSidebar"] { left: 0 !important; right: auto !important; }
-    [data-testid="stSidebar"] * { text-align: right !important; direction: rtl !important; }
+    [data-testid="stSidebar"] { left: 0 !important; right: auto !important; width: 250px !important; }
+    [data-testid="stSidebar"] * { text-align: right !important; direction: rtl !important; word-wrap: break-word; }
     .recommendation-box { border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #f9f9f9; margin-bottom: 10px; }
     .alert-red { background-color: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; border-radius: 4px; }
     .alert-green { background-color: #e8f5e9; border-left: 4px solid #388e3c; padding: 10px; border-radius: 4px; }
     .alert-yellow { background-color: #fff3e0; border-left: 4px solid #f57c00; padding: 10px; border-radius: 4px; }
-    .metric-card { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 8px; padding: 12px 8px; margin: 5px 0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); border: 1px solid rgba(255, 255, 255, 0.5); text-align: center; }
+    .metric-card { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 8px; padding: 12px 8px; margin: 5px 0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); border: 1px solid rgba(255, 255, 255, 0.5); text-align: center; word-wrap: break-word; }
     .metric-card-actual { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
     .metric-card-predicted { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
-    .metric-value { font-size: 1.6rem !important; font-weight: 800 !important; margin: 5px 0; letter-spacing: 0.5px; }
-    .metric-label { font-size: 0.75rem !important; font-weight: 600 !important; opacity: 0.9; margin-bottom: 2px; }
+    .metric-value { font-size: 1.6rem !important; font-weight: 800 !important; margin: 5px 0; letter-spacing: 0.5px; word-wrap: break-word; }
+    .metric-label { font-size: 0.75rem !important; font-weight: 600 !important; opacity: 0.9; margin-bottom: 2px; word-wrap: break-word; }
     .metric-icon { font-size: 1.8rem; margin-bottom: 4px; }
-    .row-header { font-size: 1.1rem; font-weight: 700; color: #2E7D32; margin: 15px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #2E7D32; }
+    .row-header { font-size: 1.1rem; font-weight: 700; color: #2E7D32; margin: 15px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #2E7D32; word-wrap: break-word; }
+    @media (max-width: 768px) {
+        [data-testid="stSidebar"] { width: 200px !important; }
+        .metric-value { font-size: 1.2rem !important; }
+        .stApp { padding: 0 !important; }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -62,13 +68,23 @@ if not st.session_state.logged_in:
             else: st.error("❌ بيانات الدخول غير صحيحة")
     st.stop()
 
-# 4. القائمة الجانبية
+# 4. القائمة الجانبية - مع عزل الصلاحيات
 with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #2E7D32;'>🏢 لآفار للمنظفات</h2>", unsafe_allow_html=True)
     st.divider()
     st.markdown(f"### 👤 مرحباً: {st.session_state.user_name}")
-    pages = ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"]
-    page = st.sidebar.radio("📌 الانتقال إلى:", pages)
+    
+    # تحديد الصفحات المتاحة حسب دور المستخدم
+    if st.session_state.role == "admin":
+        pages = ["واجهة الإدارة الذكية", "واجهة المندوب", "واجهة المحاسب"]
+    elif st.session_state.role == "sales":
+        pages = ["واجهة المندوب"]
+    elif st.session_state.role == "acc":
+        pages = ["واجهة المحاسب"]
+    else:
+        pages = []
+    
+    page = st.sidebar.radio("📌 الانتقال إلى:", pages) if pages else "واجهة المندوب"
     st.divider()
     if st.sidebar.button("🚪 تسجيل الخروج", use_container_width=True):
         st.session_state.logged_in = False
@@ -203,6 +219,11 @@ elif page == "واجهة المحاسب":
 
 # --- واجهة الإدارة الذكية (صفحة واحدة متكاملة) ---
 elif page == "واجهة الإدارة الذكية":
+    # فحص الصلاحيات - فقط المدير يمكنه الدخول لهذه الواجهة
+    if st.session_state.role != "admin":
+        st.error("❌ ليس لديك صلاحية للدخول لهذه الواجهة. يمكنك فقط استخدام واجهتك الخاصة.")
+        st.stop()
+    
     st.header("📊 مركز القيادة والتحكم - لآفار للأعمال")
     
     # ===== حساب البيانات الأساسية =====
