@@ -188,9 +188,7 @@ elif page == "واجهة المحاسب":
         st.dataframe(invoiced_all, use_container_width=True, hide_index=True)
     else: st.info("ℹ️ لا توجد فواتير معتمدة.")
 
-    st.markdown("  
-  
-", unsafe_allow_html=True)
+    st.markdown("  ", unsafe_allow_html=True)
     st.columns([5, 1])[1].link_button("📊 نظام دفترة", "https://xhi.daftra.com/", type="primary" )
 
 # --- واجهة الإدارة ---
