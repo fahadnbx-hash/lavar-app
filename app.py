@@ -5,45 +5,57 @@ import database as db
 import plotly.express as px
 import plotly.graph_objects as go
 
-# إعدادات الصفحة - تركنا السايد بار في مكانه الطبيعي (اليسار) لحل مشكلة التداخل
-st.set_page_config(page_title="لاڤار للمنظفات - نظام الإدارة", layout="wide", initial_sidebar_state="auto")
+# إعدادات الصفحة - جعل القائمة الجانبية مخفية افتراضياً
+st.set_page_config(page_title="لاڤار للمنظفات - نظام الإدارة", layout="wide", initial_sidebar_state="collapsed")
 
-# حقن CSS لضمان محاذاة النصوص لليمين (RTL) مع بقاء السايد بار يساراً
+# حقن CSS لإصلاح مشاكل الجوال والـ RTL بشكل نهائي
 st.markdown("""
     <style>
-    /* جعل المحتوى الرئيسي يبدأ من اليمين */
+    /* التنسيقات الأساسية للـ RTL */
     .stApp { text-align: right; direction: rtl; }
-    
-    /* التأكد من أن النصوص داخل القائمة الجانبية (التي تظهر يساراً) محاذية لليمين أيضاً */
     [data-testid="stSidebar"] { text-align: right; direction: rtl; }
     
-    /* إصلاح ظهور النصوص بشكل عمودي عبر إعطاء مساحة كافية */
-    [data-testid="stSidebarContent"] {
-        padding-top: 2rem;
-    }
-    
-    /* تحسين مظهر التبويبات في الجوال */
+    /* حل مشكلة التداخل في الجوال بشكل جذري */
     @media (max-width: 768px) {
+        /* إخفاء القائمة الجانبية تماماً لتوفير مساحة للمحتوى */
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+        /* توسيع المحتوى الرئيسي ليملأ الشاشة */
+        .main .block-container {
+            padding: 1rem !important;
+            max-width: 100% !important;
+        }
+        /* منع ظهور النصوص بشكل عمودي */
+        * {
+            white-space: normal !important;
+        }
+        /* تصغير العناوين لتناسب الشاشة */
+        h1 { font-size: 1.4rem !important; }
+        h2 { font-size: 1.2rem !important; }
+        
+        /* تحسين مظهر أزرار التبويبات */
         .stTabs [data-baseweb="tab-list"] {
-            gap: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
         }
         .stTabs [data-baseweb="tab"] {
-            font-size: 0.9rem !important;
-            padding: 10px !important;
+            flex: 1 1 auto;
+            text-align: center;
+            padding: 10px 5px !important;
+            font-size: 0.8rem !important;
         }
-        /* تصغير العناوين لتناسب عرض الجوال */
-        h1 { font-size: 1.6rem !important; }
-        .stMarkdown p { font-size: 1rem !important; }
     }
     
     /* تنسيق البطاقات */
     .metric-card {
         background: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        border: 1px solid #f0f0f0;
-        margin-bottom: 15px;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: 1px solid #eee;
+        margin-bottom: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -72,51 +84,49 @@ def login():
                 st.session_state.role = "acc"
                 st.rerun()
             else:
-                st.error("بيانات الدخول غير صحيحة")
+                st.error("خطأ في البيانات")
 
 if not st.session_state.logged_in:
     login()
     st.stop()
 
-# القائمة الجانبية (ستظهر في اليسار تلقائياً وهو الحل الأفضل تقنياً)
+# القائمة الجانبية (ستكون مخفية في الجوال لتوفير المساحة)
 with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/factory.png", width=70)
-    st.title("لاڤار للمنظفات")
-    st.markdown(f"👤 مرحباً: **{st.session_state.role}**")
-    st.divider()
-    
-    if st.button("🚪 تسجيل الخروج", use_container_width=True):
+    st.image("https://img.icons8.com/fluency/96/factory.png", width=60)
+    st.title("لاڤار")
+    st.write(f"👤: **{st.session_state.role}**")
+    if st.button("🚪 خروج", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
 
 # واجهة المندوب
 if st.session_state.role == "sales":
     st.title("📋 واجهة المندوب")
-    tab1, tab2 = st.tabs(["🛒 إدارة الطلبات", "📍 الزيارات الميدانية"])
+    tab1, tab2 = st.tabs(["🛒 الطلبات", "📍 الزيارات"])
     
     with tab1:
-        st.subheader("➕ إنشاء طلب جديد")
+        st.subheader("🛒 إنشاء طلب")
         with st.form("order_form", clear_on_submit=True):
             client_name = st.text_input("اسم العميل")
-            cr_number = st.text_input("رقم السجل التجاري")
+            cr_number = st.text_input("السجل التجاري")
             vat_number = st.text_input("الرقم الضريبي")
-            qty = st.number_input("الكمية (علبة)", min_value=1, value=100)
-            if st.form_submit_button("حفظ الطلب بنجاح", use_container_width=True):
+            qty = st.number_input("الكمية", min_value=1, value=100)
+            if st.form_submit_button("حفظ الطلب", use_container_width=True):
                 if client_name:
                     db.add_order(client_name, cr_number, vat_number, qty, 11)
-                    st.success(f"تم تسجيل طلب {client_name} بنجاح")
+                    st.success(f"تم الحفظ لـ {client_name}")
                 else:
-                    st.error("يرجى إدخال اسم العميل")
+                    st.error("أدخل الاسم")
 
     with tab2:
-        st.subheader("📍 تسجيل زيارة ميدانية")
+        st.subheader("📍 تسجيل زيارة")
         with st.form("visit_form", clear_on_submit=True):
             v_client = st.text_input("اسم العميل")
-            v_notes = st.text_area("ملاحظات الزيارة")
-            v_conf = st.slider("مستوى الثقة (%)", 0, 100, 50)
+            v_notes = st.text_area("الملاحظات")
+            v_conf = st.slider("الثقة (%)", 0, 100, 50)
             if st.form_submit_button("حفظ الزيارة", use_container_width=True):
                 db.add_visit(v_client, "ميدانية", v_notes, v_conf)
-                st.success("تم تسجيل الزيارة")
+                st.success("تم التسجيل")
 
 # واجهة المحاسب
 elif st.session_state.role == "acc":
@@ -126,16 +136,8 @@ elif st.session_state.role == "acc":
 
 # واجهة المدير
 elif st.session_state.role == "admin":
-    st.title("🚀 لوحة تحكم المدير")
-    st.info("مرحباً بك في مركز القيادة الذكي")
-    
-    # إحصائيات سريعة
+    st.title("🚀 لوحة الإدارة")
     orders = db.get_orders()
-    total_sales = orders['total_price'].sum() if not orders.empty else 0
-    visits_count = len(db.get_visits())
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric("إجمالي المبيعات", f"{total_sales:,.0f} ريال")
-    with c2:
-        st.metric("إجمالي الزيارات", visits_count)
+    total = orders['total_price'].sum() if not orders.empty else 0
+    st.metric("إجمالي المبيعات", f"{total:,.0f} ريال")
+    st.info("مرحباً بك في لوحة الإدارة")
