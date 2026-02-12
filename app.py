@@ -33,13 +33,13 @@ st.markdown("""
     .alert-red { background-color: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; border-radius: 4px; }
     .alert-green { background-color: #e8f5e9; border-left: 4px solid #388e3c; padding: 10px; border-radius: 4px; }
     .alert-yellow { background-color: #fff3e0; border-left: 4px solid #f57c00; padding: 10px; border-radius: 4px; }
-    .metric-card { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 12px; padding: 20px; margin: 10px 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); border: 1px solid rgba(255, 255, 255, 0.5); text-align: center; }
+    .metric-card { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 8px; padding: 12px 8px; margin: 5px 0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); border: 1px solid rgba(255, 255, 255, 0.5); text-align: center; }
     .metric-card-actual { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
     .metric-card-predicted { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
-    .metric-value { font-size: 2.2rem !important; font-weight: 900 !important; margin: 10px 0; letter-spacing: 1px; }
-    .metric-label { font-size: 0.95rem !important; font-weight: 600 !important; opacity: 0.95; margin-bottom: 5px; }
-    .metric-icon { font-size: 2.5rem; margin-bottom: 10px; }
-    .row-header { font-size: 1.3rem; font-weight: 800; color: #2E7D32; margin: 20px 0 15px 0; padding-bottom: 10px; border-bottom: 3px solid #2E7D32; }
+    .metric-value { font-size: 1.6rem !important; font-weight: 800 !important; margin: 5px 0; letter-spacing: 0.5px; }
+    .metric-label { font-size: 0.75rem !important; font-weight: 600 !important; opacity: 0.9; margin-bottom: 2px; }
+    .metric-icon { font-size: 1.8rem; margin-bottom: 4px; }
+    .row-header { font-size: 1.1rem; font-weight: 700; color: #2E7D32; margin: 15px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #2E7D32; }
     </style>
 """, unsafe_allow_html=True)
 
