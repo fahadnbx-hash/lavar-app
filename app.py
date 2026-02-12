@@ -211,6 +211,74 @@ elif page == "واجهة الإدارة الذكية":
     sales_qty = invoiced_adm['Quantity'].sum() if not invoiced_adm.empty else 0
     potential_qty = visits['Potential Qty'].sum() if not visits.empty else 0
     
+    # ===== محرك خطة الإنتاج الزمني =====
+    def calculate_production_plan():
+        production_orders = []
+        remaining_stock = current_stock
+        today = pd.to_datetime(date.today())
+        year_end = pd.to_datetime(f"{today.year}-12-31")
+        
+        if visits.empty:
+            return production_orders
+        
+        visits_sorted = visits.sort_values('Potential Date')
+        
+        for idx, visit in visits_sorted.iterrows():
+            potential_date = pd.to_datetime(visit['Potential Date'])
+            
+            if potential_date > year_end or potential_date < today:
+                continue
+            
+            conf_key = f"conf_{idx}"
+            if conf_key in st.session_state:
+                confidence = st.session_state[conf_key] / 100.0
+            else:
+                auto_conf = 60
+                if visit['Potential Qty'] > 500:
+                    auto_conf += 10
+                days_diff = (potential_date - pd.to_datetime(visit['Date'])).days
+                if days_diff < 10:
+                    auto_conf += 15
+                confidence = min(100, auto_conf) / 100.0
+            
+            weighted_qty = visit['Potential Qty'] * confidence
+            
+            if remaining_stock < weighted_qty:
+                production_qty = weighted_qty - remaining_stock
+                production_cost = production_qty * UNIT_COST
+                order_date = potential_date - timedelta(days=LEAD_TIME_DAYS)
+                
+                available_cash = 0
+                if not invoiced_adm.empty:
+                    due_invoices = invoiced_adm[
+                        (pd.to_datetime(invoiced_adm['Due Date']) >= today) & 
+                        (pd.to_datetime(invoiced_adm['Due Date']) <= order_date)
+                    ]
+                    available_cash = due_invoices['Total Amount'].sum()
+                
+                financing_gap = max(0, production_cost - available_cash)
+                cash_coverage = (available_cash / production_cost * 100) if production_cost > 0 else 0
+                
+                production_orders.append({
+                    'order_date': order_date.strftime('%Y-%m-%d'),
+                    'delivery_date': potential_date.strftime('%Y-%m-%d'),
+                    'quantity': int(production_qty),
+                    'cost': production_cost,
+                    'available_cash': available_cash,
+                    'financing_gap': financing_gap,
+                    'cash_coverage': cash_coverage,
+                    'customer': visit['Customer Name'],
+                    'confidence': confidence * 100
+                })
+                
+                remaining_stock = production_qty
+            else:
+                remaining_stock -= weighted_qty
+        
+        return production_orders
+    
+    production_plan = calculate_production_plan()
+    
     # ===== نظام مؤشر الثقة الذكي =====
     if 'confidence_level' not in st.session_state:
         st.session_state.confidence_level = 70
