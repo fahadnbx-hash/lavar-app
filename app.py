@@ -119,7 +119,10 @@ if page == "واجهة المندوب":
                     col4.write(str(r['Total Amount']))
                     b1, b2 = col5.columns(2)
                     if b1.button("إرسال 📤", key=f"snd_{r['Order ID']}"):
-                        update_order_status(r['Order ID'], 'Pending'); st.rerun()
+                        update_order_status(r["Order ID"], 'Pending')
+                        # إعادة جلب الطلبات لضمان تحديث الواجهة للمحاسب
+                        orders = get_orders()
+                        st.rerun()
                     if b2.button("حذف 🗑️", key=f"del_{r['Order ID']}"):
                         delete_order(r['Order ID']); st.rerun()
             else: st.info("ℹ️ لا توجد طلبات حالياً بانتظار الإرسال.")
